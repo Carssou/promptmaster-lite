@@ -1,0 +1,169 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Frontend build outputs
+dist/
+dist-ssr/
+build/
+out/
+*.local
+
+# Rust/Tauri specific
+src-tauri/target/
+src-tauri/Cargo.lock
+*.pdb
+
+# Tauri build artifacts
+src-tauri/gen/
+src-tauri/.cargo/
+src-tauri/WixTools/
+
+# Database files (for development - don't commit local data)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Windows
+*.exe
+*.msi
+*.msix
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+.#*
+\#*#
+.*.swp
+.*.swo
+
+# Package files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency lock files (optional - some teams prefer to commit these)
+# package-lock.json
+# yarn.lock
+
+# IDE-specific files
+.vscode/settings.json
+.history/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Build artifacts and caches
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.netlify/
+
+# Runtime and debugging
+*.stackdump
+*.orig
+
+# Application specific
+# Exclude user's local prompt files (they're in ~/Documents/PromptMaster/)
+PromptMaster/

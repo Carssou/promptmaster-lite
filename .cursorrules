@@ -1,0 +1,280 @@
+# CLAUDE.md - PromptMaster Development Rules
+
+## Project Context
+
+You are helping develop PromptMaster-Lite, a local-first desktop app for prompt management built with Tauri 2.0 (Rust backend) and React (TypeScript frontend).
+
+## Core Development Principles
+
+### 1. Always Provide Complete, Working Code
+
+- DO provide full file contents that compile and run
+- DO include all necessary imports at the top of each file
+- DO test basic compilation before presenting code
+- DO specify exact file paths for every code snippet
+
+### 2. Maintain Consistent Project Structure
+
+```
+promptmaster-lite/
+├── src/                    # React frontend
+│   ├── components/
+│   ├── pages/
+│   └── lib/
+├── src-tauri/             # Rust backend
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── db.rs
+│   │   ├── prompts.rs
+│   │   └── lib.rs
+│   └── Cargo.toml
+└── package.json
+```
+
+### 3. Use Correct Tauri 2.0 APIs
+
+```rust
+// DO use app_handle.path() for Tauri 2.0
+let app_dir = app_handle.path().app_data_dir().unwrap();
+
+// DON'T use deprecated APIs
+// let app_dir = app_handle.path_resolver().app_data_dir()  // Old v1 API
+```
+
+### 4. Database Operations Best Practices
+
+```rust
+// DO use proper error handling
+use rusqlite::{params, Connection, Result};
+
+// DO use params! macro for SQL parameters
+conn.execute(
+    "INSERT INTO prompts (uuid, title) VALUES (?1, ?2)",
+    params![&uuid, &title],
+)?;
+
+// DO create indexes for foreign keys
+CREATE INDEX idx_versions_prompt ON versions(prompt_uuid);
+```
+
+### 5. File Organization Standards
+
+```rust
+// DO organize Rust modules clearly
+// main.rs
+mod db;        // Database operations
+mod prompts;   // Prompt-related commands
+mod models;    // Data structures
+mod utils;     // Helper functions
+
+// DO use proper imports
+use crate::db::init_database;  // Internal modules
+use serde::{Deserialize, Serialize};  // External crates
+```
+
+### 6. React/TypeScript Best Practices
+
+```typescript
+// DO use TypeScript interfaces for all data structures
+interface Prompt {
+  uuid: string;
+  title: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+// DO use proper Tauri imports
+import { invoke } from "@tauri-apps/api/core";
+
+// DO handle errors properly
+try {
+  const result = await invoke<Prompt>("save_prompt", { title, content, tags });
+} catch (error) {
+  console.error("Failed to save prompt:", error);
+}
+```
+
+### 7. File Naming Conventions
+
+```
+// DO use consistent naming
+2025-01-10--blog-title-generator--v1.0.0.md  // Prompt files
+promptmaster.db                               // Database
+PromptCard.tsx                               // React components
+use-prompts.ts                               // React hooks
+```
+
+### 8. State Management Rules
+
+```typescript
+// DO store UI state in Zustand
+const useUIStore = create((set) => ({
+  sidebarOpen: true,
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+}));
+
+// DON'T store data in Zustand - use SQLite
+// Wrong: prompts: [] in Zustand
+// Right: fetch prompts from database via Tauri commands
+```
+
+### 9. Version Control for Prompts
+
+```rust
+// DO use semantic versioning
+"1.0.0" -> "1.0.1"  // Patch: minor fixes
+"1.0.1" -> "1.1.0"  // Minor: improvements
+"1.1.0" -> "2.0.0"  // Major: breaking changes
+
+// DO track parent versions for branching
+parent_uuid: Option<String>  // Links to previous version
+```
+
+### 10. Error Handling Standards
+
+```rust
+// DO convert errors to strings for Tauri commands
+#[tauri::command]
+async fn save_prompt() -> Result<Prompt, String> {
+    init_database(&app_handle)
+        .map_err(|e| e.to_string())?;  // Convert Result<T, E> to Result<T, String>
+}
+
+// DO provide meaningful error messages
+Err("Failed to save prompt: title cannot be empty".to_string())
+```
+
+### 11. Testing Commands in Development
+
+```javascript
+// DO provide browser console test snippets
+// Test in DevTools console:
+const { invoke } = window.__TAURI__.core;
+await invoke("save_prompt", {
+  title: "Test Prompt",
+  content: "Generate {{output}}",
+  tags: ["test"],
+});
+```
+
+### 12. Platform-Specific Paths
+
+```rust
+// DO handle cross-platform paths
+#[cfg(target_os = "windows")]
+let app_dir = app_handle.path().app_data_dir(); // C:\Users\...\AppData\Roaming\
+
+#[cfg(target_os = "macos")]
+let app_dir = app_handle.path().app_data_dir(); // ~/Library/Application Support/
+
+#[cfg(target_os = "linux")]
+let app_dir = app_handle.path().app_data_dir(); // ~/.config/
+```
+
+### 13. Async Command Patterns
+
+```rust
+// DO mark Tauri commands as async even if not needed yet
+#[tauri::command]
+pub async fn list_prompts(app_handle: tauri::AppHandle) -> Result<Vec<Prompt>, String> {
+    // Allows for future async operations without breaking API
+}
+```
+
+### 14. Security Best Practices
+
+```rust
+// DO validate all inputs
+if title.trim().is_empty() {
+    return Err("Title cannot be empty".to_string());
+}
+
+// DO use parameterized queries (never string concatenation)
+// DON'T: format!("SELECT * FROM prompts WHERE title = '{}'", title)
+// DO: conn.execute("SELECT * FROM prompts WHERE title = ?1", params![title])
+```
+
+### 15. Development Workflow
+
+```bash
+# DO provide clear command sequences
+npm run tauri dev     # Start development
+npm run tauri build   # Build for production
+
+# DO mention when rebuilding is needed
+# "After changing Cargo.toml, restart the dev server"
+```
+
+### 16. Feature Flags for Progressive Enhancement
+
+```rust
+// DO use feature flags for experimental features
+#[cfg(feature = "plugins")]
+mod plugins;
+
+// In code
+if cfg!(feature = "vector-search") {
+    // Vector search implementation
+}
+```
+
+### 17. Documentation Standards
+
+```rust
+// DO document complex functions
+/// Saves a prompt to both database and filesystem
+///
+/// # Arguments
+/// * `title` - The prompt title (must not be empty)
+/// * `content` - The prompt content with {{variables}}
+///
+/// # Returns
+/// * `Ok(Prompt)` - The saved prompt with generated UUID
+/// * `Err(String)` - Error message if save fails
+#[tauri::command]
+pub async fn save_prompt(...) -> Result<Prompt, String>
+```
+
+### 18. SQL Schema Evolution
+
+```sql
+-- DO version your schema changes
+-- schema_v1.sql, schema_v2.sql, etc.
+
+-- DO use IF NOT EXISTS for all CREATE statements
+CREATE TABLE IF NOT EXISTS prompts (...);
+
+-- DO provide migration scripts when schema changes
+-- migrate_v1_to_v2.sql
+ALTER TABLE prompts ADD COLUMN category TEXT;
+```
+
+### 19. Component Structure
+
+```tsx
+// DO organize React components consistently
+export function PromptCard({ prompt }: { prompt: Prompt }) {
+  // 1. Hooks
+  const [editing, setEditing] = useState(false);
+
+  // 2. Event handlers
+  const handleEdit = () => { ... };
+
+  // 3. Render
+  return (
+    <div className="...">
+      {/* Content */}
+    </div>
+  );
+}
+```
+
+## Remember
+
+- This is a LOCAL-FIRST app - no mandatory cloud features
+- Start simple, add complexity incrementally
+- Every code snippet should be runnable
+- Include file paths with every code block
+- Test basic functionality before adding features
+- Provide platform-specific commands when needed (PowerShell vs Bash)

@@ -1,0 +1,26 @@
+[package]
+name = "promptmaster-lite"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["Ludovic Carceles"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+lazy_static = "1.4"
+notify = "6"
+log = "0.4"
+env_logger = "0.10"
