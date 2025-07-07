@@ -115,9 +115,8 @@ export function VariablePanel({ content, variables, onChange, className = '' }: 
       {/* Variable Statistics */}
       <div className="p-4 bg-gray-100 text-xs text-gray-600">
         <div className="space-y-1">
-          <div>Used: {usedVariables.length}</div>
-          <div>Manual: {Object.keys(variables).length}</div>
-          <div>From frontmatter: {detectedVariables.filter(v => v.source === 'frontmatter').length}</div>
+          <div>Variables found: {usedVariables.length}</div>
+          <div>User defined: {Object.keys(variables).length}</div>
         </div>
       </div>
     </div>
@@ -152,9 +151,7 @@ function VariableInput({ variable, value, onChange, onRemove, canRemove }: Varia
   const getSourceBadge = () => {
     switch (variable.source) {
       case 'manual':
-        return <span className="text-blue-600 text-xs">Manual</span>;
-      case 'frontmatter':
-        return <span className="text-green-600 text-xs">YAML</span>;
+        return <span className="text-blue-600 text-xs">Defined</span>;
       case 'fallback':
         return <span className="text-red-600 text-xs">Undefined</span>;
       default:
@@ -186,18 +183,9 @@ function VariableInput({ variable, value, onChange, onRemove, canRemove }: Varia
         onChange={(e) => setInputValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        placeholder={variable.source === 'frontmatter' ? variable.value : 'Enter value...'}
-        disabled={variable.source === 'frontmatter'}
-        className={`w-full px-2 py-1 border rounded text-sm ${
-          variable.source === 'frontmatter' 
-            ? 'bg-gray-100 border-gray-200 text-gray-600' 
-            : 'bg-white border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
-        }`}
+        placeholder="Enter value..."
+        className="w-full px-2 py-1 border rounded text-sm bg-white border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
       />
-      
-      {variable.source === 'fallback' && (
-        <p className="text-xs text-red-600">Variable used but not defined</p>
-      )}
     </div>
   );
 }

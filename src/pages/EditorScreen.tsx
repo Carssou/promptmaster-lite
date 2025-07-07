@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Save, ArrowLeft, Eye, EyeOff, History, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PromptEditor } from '../components/editor/PromptEditor';
 import { LivePreview } from '../components/editor/LivePreview';
 import { PromptDiff } from '../components/editor/PromptDiff';
 import { VersionHistory } from '../components/version/VersionHistory';
 import { VariablePanel } from '../components/variables/VariablePanel';
 import { validateVariables } from '../services/variableParser';
-// import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
 interface Version {
   uuid: string;
@@ -16,6 +17,16 @@ interface Version {
   created_at: string;
   body: string;
   isLatest: boolean;
+}
+
+interface BackendVersion {
+  uuid: string;
+  prompt_uuid: string;
+  semver: string;
+  body: string;
+  metadata?: string;
+  created_at: string;
+  parent_uuid?: string;
 }
 
 interface Prompt {
@@ -29,6 +40,18 @@ interface Prompt {
 }
 
 type ViewMode = 'edit' | 'preview' | 'diff';
+
+// Helper function to calculate next patch version
+const getNextVersion = (currentVersion: string | undefined): string => {
+  if (!currentVersion) {
+    return '1.0.0';
+  }
+  const versionParts = currentVersion.split('.').map(Number);
+  if (versionParts.length === 3 && versionParts.every(n => !isNaN(n))) {
+    return `${versionParts[0]}.${versionParts[1]}.${versionParts[2] + 1}`;
+  }
+  return currentVersion;
+};
 
 export function EditorScreen() {
   const { promptId } = useParams<{ promptId: string }>();
@@ -46,6 +69,9 @@ export function EditorScreen() {
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editorMarkers, setEditorMarkers] = useState<any[]>([]);
+  
+  // Future feature flag for version bump confirmation
+  const ENABLE_VERSION_BUMP_CONFIRMATION = false;
 
   // Load prompt data
   useEffect(() => {
@@ -55,51 +81,44 @@ export function EditorScreen() {
       try {
         setLoading(true);
         
-        // Mock data for now - will be replaced with IPC calls
-        const mockPrompt: Prompt = {
-          uuid: promptId,
-          title: 'Sample Prompt',
-          content: `---
-uuid: ${promptId}
-version: "1.0.0"
-title: "Sample Prompt"
-tags: ["example", "test"]
-variables:
-  user_name: "John Doe"
-  task_type: "analysis"
-created: 2025-07-06
-modified: 2025-07-06
----
-
-# {{task_type}} Task
-
-Hello {{user_name}}, 
-
-Please perform the following {{task_type}}:
-
-{{task_description}}
-
-## Requirements
-- Be thorough and detailed
-- Use examples where applicable
-- Consider edge cases
-
-Thank you!`,
-          tags: ['example', 'test'],
-          created_at: '2025-07-06T08:00:00Z',
-          modified_at: '2025-07-06T08:00:00Z',
-          version: '1.0.0'
-        };
+        // Load prompt from database
+        const promptList = await invoke<Prompt[]>('list_prompts');
+        const currentPrompt = promptList.find(p => p.uuid === promptId);
         
-        setPrompt(mockPrompt);
-        setEditorContent(mockPrompt.content);
+        if (!currentPrompt) {
+          console.error('Prompt not found');
+          return;
+        }
         
-        // Initialize variables from content
-        setVariables({
-          user_name: 'John Doe',
-          task_type: 'analysis',
-          task_description: 'Analyze the provided data and create a comprehensive report'
-        });
+        setPrompt(currentPrompt);
+        
+        // Load latest version content and info
+        try {
+          const [latestVersionBody, versionList] = await Promise.all([
+            invoke<string | null>('get_latest_version', { promptUuid: promptId }),
+            invoke<Array<{uuid: string, semver: string, created_at: string}>>('list_versions', { promptUuid: promptId })
+          ]);
+          
+          if (latestVersionBody && versionList.length > 0) {
+            setEditorContent(latestVersionBody);
+            // Update prompt with latest version info
+            setPrompt({
+              ...currentPrompt,
+              version: versionList[0].semver // First item is latest due to ORDER BY created_at DESC
+            });
+          } else {
+            // No versions found, use the prompt's content or create first version
+            console.log('No versions found, using prompt content as fallback');
+            setEditorContent(currentPrompt.content || '# New Prompt\n\nStart writing your prompt here...');
+          }
+          
+          // Version list will be loaded by VersionHistory component
+        } catch (versionError) {
+          console.log('Error loading versions, using prompt content as fallback');
+          setEditorContent(currentPrompt.content || '# New Prompt\n\nStart writing your prompt here...');
+        }
+        
+        // Variables will be automatically detected from content by VariablePanel
       } catch (error) {
         console.error('Error loading prompt:', error);
       } finally {
@@ -146,28 +165,47 @@ Thank you!`,
   const handleSave = async () => {
     if (!prompt || saving) return;
     
+    // Future feature: Version bump confirmation
+    if (ENABLE_VERSION_BUMP_CONFIRMATION && hasUnsavedChanges) {
+      const nextVersion = getNextVersion(prompt.version);
+      const confirmed = window.confirm(
+        `Save changes as new version v${nextVersion}?`
+      );
+      if (!confirmed) return;
+    }
+    
     try {
       setSaving(true);
       
-      // Mock save operation - will be replaced with IPC call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Save new version using IPC
+      const newVersion = await invoke<BackendVersion>('save_new_version', {
+        promptUuid: prompt.uuid,
+        body: editorContent
+      });
       
-      // Update prompt with new content
+      // Update prompt with new content and version
       const updatedPrompt = {
         ...prompt,
         content: editorContent,
-        modified_at: new Date().toISOString()
+        version: newVersion.semver,
+        modified_at: newVersion.created_at
       };
       
       setPrompt(updatedPrompt);
       setHasUnsavedChanges(false);
       
-      // Show success toast (would be implemented with a toast system)
-      console.log('Prompt saved successfully');
+      // Show success toast with version information
+      toast.success(`Saved successfully as v${newVersion.semver}`, {
+        duration: 3000,
+        icon: '💾',
+      });
       
     } catch (error) {
       console.error('Error saving prompt:', error);
-      // Show error toast
+      toast.error('Failed to save prompt. Please try again.', {
+        duration: 4000,
+        icon: '❌',
+      });
     } finally {
       setSaving(false);
     }
@@ -304,9 +342,9 @@ Thank you!`,
             </button>
             
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">{prompt.title}</h1>
+              <h1 className="text-xl font-semibold text-gray-900">{prompt?.title || 'Loading...'}</h1>
               <p className="text-sm text-gray-500">
-                v{prompt.version} • {hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
+                v{prompt?.version || '1.0.0'} • {hasUnsavedChanges ? `Will save as v${getNextVersion(prompt?.version)}` : 'Saved'}
               </p>
             </div>
           </div>
@@ -368,7 +406,7 @@ Thank you!`,
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
           {/* Version History Sidebar */}
-          {showVersionHistory && (
+          {showVersionHistory && prompt && (
             <>
               <Panel defaultSize={25} minSize={20} maxSize={40}>
                 <VersionHistory

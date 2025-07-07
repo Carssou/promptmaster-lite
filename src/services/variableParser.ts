@@ -3,7 +3,7 @@
 export interface Variable {
   name: string;
   value: string;
-  source: 'manual' | 'frontmatter' | 'fallback';
+  source: 'manual' | 'fallback';
 }
 
 export interface ParsedVariables {
@@ -33,52 +33,20 @@ export function parseVariables(content: string): string[] {
   return variables;
 }
 
-/**
- * Extract variables from YAML frontmatter
- */
-export function extractFrontmatterVariables(content: string): Record<string, string> {
-  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---/;
-  const match = content.match(frontmatterRegex);
-  
-  if (!match) return {};
-
-  const yamlContent = match[1];
-  const variables: Record<string, string> = {};
-
-  // Simple YAML parsing for variables section
-  const variablesMatch = yamlContent.match(/variables:\s*\n((?:\s+.+\n?)*)/);
-  if (variablesMatch) {
-    const variablesSection = variablesMatch[1];
-    const variableLines = variablesSection.split('\n').filter(line => line.trim());
-    
-    for (const line of variableLines) {
-      const keyValueMatch = line.match(/\s*([a-zA-Z0-9_]+):\s*["']?([^"'\n]+)["']?/);
-      if (keyValueMatch) {
-        variables[keyValueMatch[1]] = keyValueMatch[2];
-      }
-    }
-  }
-
-  return variables;
-}
 
 /**
  * Substitute variables in content with values
  */
 export function substituteVariables(
   content: string,
-  manualOverrides: VariableSubstitution = {},
-  frontmatterVars: VariableSubstitution = {}
+  userDefinedValues: VariableSubstitution = {}
 ): string {
   const variableRegex = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
   
   return content.replace(variableRegex, (_match, varName) => {
-    // Priority order: manual overrides > frontmatter > fallback
-    if (manualOverrides[varName] !== undefined) {
-      return manualOverrides[varName];
-    }
-    if (frontmatterVars[varName] !== undefined) {
-      return frontmatterVars[varName];
+    // Priority order: user defined values > fallback
+    if (userDefinedValues[varName] !== undefined) {
+      return userDefinedValues[varName];
     }
     
     // Fallback token for undefined variables
@@ -153,25 +121,16 @@ export function validateVariables(content: string): Array<{
  */
 export function getVariablesWithSources(
   content: string,
-  manualOverrides: VariableSubstitution = {}
+  userDefinedValues: VariableSubstitution = {}
 ): Variable[] {
   const detectedVars = parseVariables(content);
-  const frontmatterVars = extractFrontmatterVariables(content);
   
   return detectedVars.map(name => {
-    if (manualOverrides[name] !== undefined) {
+    if (userDefinedValues[name] !== undefined) {
       return {
         name,
-        value: manualOverrides[name],
+        value: userDefinedValues[name],
         source: 'manual' as const
-      };
-    }
-    
-    if (frontmatterVars[name] !== undefined) {
-      return {
-        name,
-        value: frontmatterVars[name],
-        source: 'frontmatter' as const
       };
     }
     

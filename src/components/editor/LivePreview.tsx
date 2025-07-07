@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
-import { substituteVariables, extractFrontmatterVariables } from '../../services/variableParser';
+import { substituteVariables } from '../../services/variableParser';
 
 interface LivePreviewProps {
   content: string;
@@ -14,26 +14,14 @@ export function LivePreview({ content, variables = {}, className = '' }: LivePre
   const [processedContent, setProcessedContent] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Extract frontmatter variables
-  const frontmatterVars = useMemo(() => {
-    return extractFrontmatterVariables(content);
-  }, [content]);
-
   // Process content with debouncing
   useEffect(() => {
     setIsProcessing(true);
     
     const timer = setTimeout(() => {
       try {
-        // Remove frontmatter from preview
-        const contentWithoutFrontmatter = content.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
-        
         // Substitute variables
-        const substituted = substituteVariables(
-          contentWithoutFrontmatter,
-          variables,
-          frontmatterVars
-        );
+        const substituted = substituteVariables(content, variables);
         
         // Strip potential API keys for security
         const sanitized = stripApiKeys(substituted);
@@ -48,7 +36,7 @@ export function LivePreview({ content, variables = {}, className = '' }: LivePre
     }, 400); // 400ms debounce
 
     return () => clearTimeout(timer);
-  }, [content, variables, frontmatterVars]);
+  }, [content, variables]);
 
   return (
     <div className={`relative ${className}`}>

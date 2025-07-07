@@ -4,10 +4,12 @@ mod error;
 mod database;
 mod db;
 mod prompts;
+mod versions;
 mod watcher;
 
 use db::init_database;
 use prompts::{save_prompt, list_prompts};
+use versions::{get_latest_version, save_new_version, list_versions, get_version_by_uuid};
 use watcher::start_file_watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,7 +37,14 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![save_prompt, list_prompts])
+        .invoke_handler(tauri::generate_handler![
+            save_prompt, 
+            list_prompts, 
+            get_latest_version, 
+            save_new_version, 
+            list_versions, 
+            get_version_by_uuid
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
