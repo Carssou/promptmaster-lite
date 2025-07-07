@@ -36,8 +36,17 @@ npm run build
 - **State Management**: Zustand 5.0.6
 
 ### Key Components
-- **Frontend**: `src/` contains React application with TypeScript
-- **Backend**: `src-tauri/src/` contains Rust code with Tauri commands
+
+#### Frontend Architecture
+- **EditorScreen**: Main editing interface at `src/pages/EditorScreen.tsx`
+- **PromptEditor**: Monaco Editor wrapper at `src/components/editor/PromptEditor.tsx`
+- **LivePreview**: Markdown renderer at `src/components/editor/LivePreview.tsx`
+- **PromptDiff**: Monaco Diff Viewer at `src/components/editor/PromptDiff.tsx`
+- **VersionHistory**: Version sidebar at `src/components/version/VersionHistory.tsx`
+- **VariablePanel**: Variable management at `src/components/variables/VariablePanel.tsx`
+- **Variable Parser**: Core engine at `src/services/variableParser.ts`
+
+#### Backend Components
 - **Database Manager**: Thread-safe connection pooling in `src-tauri/src/database.rs`
 - **Database Layer**: Singleton management in `src-tauri/src/db.rs`
 - **Prompt Management**: Core business logic in `src-tauri/src/prompts.rs`
@@ -98,7 +107,19 @@ All commands include:
 - Debounced file watcher events to prevent toast spam
 - Silent reloads for background file changes
 - Loading states and proper error feedback
-- Keyboard shortcuts: `Cmd+N`/`Ctrl+N` for new prompt
+- Monaco Editor with syntax highlighting and error markers
+- Live preview with variable substitution and API key stripping
+- High-contrast diff viewer with color-blind friendly theme
+- Keyboard shortcuts: `Cmd+S` (save), `Cmd+D` (diff), `Esc` (exit), `Cmd+N` (new prompt)
+- Resizable panels with professional 3-panel layout
+
+### Variable System
+- **Automatic Detection**: Scans content for `{{variable_name}}` patterns using regex
+- **Substitution Hierarchy**: Manual overrides → YAML frontmatter → fallback tokens `«var»`
+- **Real-time Validation**: Detects unclosed braces, nested braces, invalid names
+- **Live Preview**: Variables are substituted in markdown preview
+- **Security**: API key detection and removal (`sk-\w{48}` patterns)
+- **Sources**: Variables tagged as Manual, YAML, or Undefined in sidebar
 
 ### Future Features (Database Schema Ready)
 - Performance tracking: BLEU scores, ROUGE scores, judge scores

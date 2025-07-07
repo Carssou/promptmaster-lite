@@ -8,6 +8,15 @@ A local-first desktop application for managing AI prompts with versioning, searc
 
 ## Features
 
+### Core Editing Experience
+- 🖥️ **Monaco Editor** - Professional code editor with syntax highlighting for markdown and YAML
+- 👁️ **Live Preview** - Real-time markdown rendering with variable substitution
+- 🔧 **Variable Management** - Automatic `{{variable}}` detection with sidebar panel
+- 📊 **Version Diff Viewer** - Side-by-side comparison with Monaco Diff Editor
+- ⌨️ **Keyboard Shortcuts** - Cmd+S (save), Cmd+D (diff), Esc (exit modes)
+- 📐 **Resizable Panels** - 3-panel layout (history, editor/preview, variables)
+
+### Data Management
 - 🗂️ **Local-first prompt management** - All data stored locally in your Documents folder
 - 📝 **Dual storage** - SQLite database + human-readable markdown files
 - 🔄 **File watcher** - Automatic sync when you edit files externally
@@ -160,6 +169,10 @@ The content can span multiple lines and paragraphs.
 | Shortcut | Action | Context |
 |----------|--------|---------|
 | `Cmd+N` / `Ctrl+N` | Create new prompt | Global |
+| `Cmd+S` / `Ctrl+S` | Save prompt with auto-version bump | Editor |
+| `Cmd+D` / `Ctrl+D` | Toggle diff viewer | Editor |
+| `Esc` | Exit diff mode | Diff viewer |
+| `Cmd+Enter` / `Ctrl+Enter` | Run prompt (planned) | Editor |
 | `F12` / `Cmd+Option+I` | Open developer tools | Development only |
 
 ## Development
@@ -199,6 +212,9 @@ npm run tauri build      # Build Tauri app for production
 - Tailwind CSS 3.4.17 (styling)
 - React Router DOM 7.6.3 (routing)
 - Zustand 5.0.6 (state management)
+- Monaco Editor (code editing)
+- React Markdown + remark-gfm (preview rendering)
+- React Resizable Panels (layout)
 
 **Backend:**
 - Rust + Tauri 2.0

@@ -118,7 +118,9 @@ function PromptCard({ prompt }: { prompt: Prompt }) {
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-      <h3 className="font-semibold text-lg mb-2">{prompt.title}</h3>
+      <Link to={`/editor/${prompt.uuid}`} className="block">
+        <h3 className="font-semibold text-lg mb-2 text-blue-600 hover:text-blue-800">{prompt.title}</h3>
+      </Link>
 
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
         <Clock size={14} />

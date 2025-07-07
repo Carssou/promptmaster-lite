@@ -1,0 +1,149 @@
+import { useEffect, useRef, useState } from 'react';
+import Editor, { Monaco } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+
+interface Marker {
+  message: string;
+  severity: 'error' | 'warning' | 'info';
+  startLineNumber: number;
+  endLineNumber: number;
+  startColumn: number;
+  endColumn: number;
+}
+
+interface PromptEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  readOnly?: boolean;
+  markers?: Marker[];
+}
+
+export function PromptEditor({ 
+  value, 
+  onChange, 
+  readOnly = false, 
+  markers = []
+}: PromptEditorProps) {
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    setIsEditorReady(true);
+
+    // Configure markdown snippets
+    monaco.languages.registerCompletionItemProvider('markdown', {
+      provideCompletionItems: (model, position) => {
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn
+        };
+
+        return {
+          suggestions: [
+            {
+              label: 'frontmatter',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              insertText: [
+                '---',
+                'uuid: "${1:uuid}"',
+                'version: "${2:1.0.0}"',
+                'title: "${3:Title}"',
+                'tags: [${4:"tag1", "tag2"}]',
+                'variables:',
+                '  ${5:variable_name}: "${6:default_value}"',
+                'created: ${7:2025-07-06}',
+                'modified: ${8:2025-07-06}',
+                '---',
+                '',
+                '${9:Your prompt content here...}'
+              ].join('\n'),
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range,
+              documentation: 'YAML frontmatter template for prompts'
+            },
+            {
+              label: 'variable',
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: '{{${1:variable_name}}}',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              range,
+              documentation: 'Variable placeholder with double braces'
+            }
+          ]
+        };
+      }
+    });
+
+    // Add keyboard shortcuts
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      // This will be handled by the parent component
+      const saveEvent = new CustomEvent('editor-save', { detail: { value: editor.getValue() } });
+      window.dispatchEvent(saveEvent);
+    });
+  };
+
+  // Update markers when they change
+  useEffect(() => {
+    if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
+
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    const monacoMarkers = markers.map(marker => ({
+      ...marker,
+      severity: marker.severity === 'error' 
+        ? monacoRef.current!.MarkerSeverity.Error 
+        : marker.severity === 'warning'
+        ? monacoRef.current!.MarkerSeverity.Warning
+        : monacoRef.current!.MarkerSeverity.Info
+    }));
+
+    monacoRef.current.editor.setModelMarkers(model, 'prompteditor', monacoMarkers);
+  }, [markers, isEditorReady]);
+
+  return (
+    <div className="h-full w-full border border-gray-300 rounded-lg overflow-hidden">
+      <div className="h-full">
+        <Editor
+          height="600px"
+          width="100%"
+          defaultLanguage="markdown"
+          theme="vs-dark"
+          value={value}
+          onChange={(val) => onChange(val || '')}
+          onMount={handleEditorDidMount}
+          options={{
+            readOnly,
+            wordWrap: 'on',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            tabSize: 2,
+            insertSpaces: true,
+            folding: true,
+            lineNumbers: 'on',
+            renderLineHighlight: 'line',
+            selectionHighlight: false,
+            bracketPairColorization: { enabled: true },
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            formatOnPaste: true,
+            formatOnType: true,
+            suggest: {
+              showKeywords: false,
+              showSnippets: true,
+              showFunctions: false,
+              showVariables: true
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
