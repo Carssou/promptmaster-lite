@@ -57,6 +57,9 @@ impl DatabaseManager {
             CREATE INDEX IF NOT EXISTS idx_versions_content 
             ON versions(prompt_uuid, body);
             
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_versions_unique_semver 
+            ON versions(prompt_uuid, semver);
+            
             CREATE TABLE IF NOT EXISTS runs (
                 uuid TEXT PRIMARY KEY,
                 version_uuid TEXT NOT NULL,

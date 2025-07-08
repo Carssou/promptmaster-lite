@@ -246,11 +246,12 @@ pub async fn save_new_version(
         }
         
         // Get the latest version to determine next semver
+        // Use a more robust query that handles race conditions
         let latest_version = {
             let mut stmt = tx.prepare(
                 "SELECT semver, uuid FROM versions 
                  WHERE prompt_uuid = ?1 
-                 ORDER BY created_at DESC
+                 ORDER BY created_at DESC, semver DESC
                  LIMIT 1"
             )?;
             
@@ -263,9 +264,42 @@ pub async fn save_new_version(
         
         let (new_semver, parent_uuid) = match latest_version {
             Some((latest_semver, latest_uuid)) => {
-                let new_semver = bump_patch_version(&latest_semver)
+                // Try to bump version, but handle potential duplicates
+                let mut candidate_semver = bump_patch_version(&latest_semver)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-                (new_semver, Some(latest_uuid))
+                
+                // Check if this semver already exists (race condition protection)
+                let mut check_stmt = tx.prepare(
+                    "SELECT COUNT(*) FROM versions WHERE prompt_uuid = ?1 AND semver = ?2"
+                )?;
+                let exists: i64 = check_stmt.query_row([&prompt_uuid, &candidate_semver], |row| {
+                    Ok(row.get(0)?)
+                })?;
+                
+                // If the semver already exists, find the actual latest and increment from there
+                if exists > 0 {
+                    log::warn!("Version {} already exists, finding actual latest version", candidate_semver);
+                    
+                    // Get the highest existing semver
+                    let mut max_stmt = tx.prepare(
+                        "SELECT semver FROM versions 
+                         WHERE prompt_uuid = ?1 
+                         ORDER BY 
+                           CAST(substr(semver, 1, instr(semver, '.') - 1) AS INTEGER) DESC,
+                           CAST(substr(semver, instr(semver, '.') + 1, instr(substr(semver, instr(semver, '.') + 1), '.') - 1) AS INTEGER) DESC,
+                           CAST(substr(semver, length(semver) - instr(reverse(semver), '.') + 2) AS INTEGER) DESC
+                         LIMIT 1"
+                    )?;
+                    
+                    let highest_semver: String = max_stmt.query_row([&prompt_uuid], |row| {
+                        Ok(row.get(0)?)
+                    })?;
+                    
+                    candidate_semver = bump_patch_version(&highest_semver)
+                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                }
+                
+                (candidate_semver, Some(latest_uuid))
             }
             None => {
                 // First version
@@ -305,7 +339,7 @@ pub async fn save_new_version(
     })?;
     
     // Sync to file system after successful database transaction
-    let tags: Vec<String> = serde_json::from_str(&result.1)
+    let tags: Vec<String> = serde_json::from_str(&result.2)
         .unwrap_or_else(|_| Vec::new());
     
     if let Err(e) = sync_version_to_file(&app_handle, &prompt_uuid, &result.1, &result.0.body, &result.3, &tags) {
@@ -355,6 +389,18 @@ pub async fn list_versions(prompt_uuid: String) -> std::result::Result<Vec<Versi
     })?;
     
     log::info!("Found {} versions for prompt {}", versions.len(), prompt_uuid);
+    
+    // Debug: Check for duplicates in the database
+    let unique_uuids: std::collections::HashSet<String> = versions.iter().map(|v| v.uuid.clone()).collect();
+    if unique_uuids.len() != versions.len() {
+        log::warn!("Database contains duplicate version UUIDs! {} unique out of {} total", unique_uuids.len(), versions.len());
+    }
+    
+    // Debug: Log all versions
+    for (i, version) in versions.iter().enumerate() {
+        log::debug!("Version {}: {} - {} ({})", i, version.semver, version.uuid, version.created_at);
+    }
+    
     if versions.is_empty() {
         log::warn!("No versions found in database for prompt {}", prompt_uuid);
     }
@@ -400,4 +446,136 @@ pub async fn get_version_by_uuid(version_uuid: String) -> std::result::Result<Op
     log::debug!("Retrieved version {}: {}", version_uuid, result.is_some());
     
     Ok(result)
+}
+
+/// Rollback to a specific version by creating a new version with the old content
+#[tauri::command]
+pub async fn rollback_to_version(
+    version_uuid: String,
+    app_handle: tauri::AppHandle,
+) -> std::result::Result<Version, String> {
+    log::info!("Rolling back to version: {}", version_uuid);
+    
+    if version_uuid.trim().is_empty() {
+        return Err("Version UUID cannot be empty".to_string());
+    }
+    
+    let db = get_database()?;
+    
+    // First, get the version to rollback to including metadata
+    let rollback_version = db.with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT prompt_uuid, body, metadata FROM versions WHERE uuid = ?1"
+        )?;
+        
+        let mut rows = stmt.query_map([&version_uuid], |row| {
+            Ok((
+                row.get::<_, String>(0)?, 
+                row.get::<_, String>(1)?, 
+                row.get::<_, Option<String>>(2)?
+            ))
+        })?;
+        
+        match rows.next() {
+            Some(row) => Ok(Some(row?)),
+            None => Ok(None),
+        }
+    })?.ok_or("Version not found")?;
+    
+    let (prompt_uuid, rollback_body, _rollback_metadata) = rollback_version;
+    
+    // Create a new version with the rollback content (bypassing content duplication check)
+    // This preserves the version history and makes the rollback explicit
+    let db = get_database()?;
+    let new_version_uuid = Uuid::now_v7().to_string();
+    let now = Utc::now().to_rfc3339();
+    
+    let new_version = db.with_transaction(|tx| {
+        // Get prompt details for file sync
+        let (prompt_title, prompt_tags): (String, String) = {
+            let mut stmt = tx.prepare("SELECT title, tags FROM prompts WHERE uuid = ?1")?;
+            let mut rows = stmt.query_map([&prompt_uuid], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            
+            match rows.next() {
+                Some(row) => row?,
+                None => return Err(rusqlite::Error::InvalidColumnName(
+                    format!("Prompt with UUID {} does not exist", prompt_uuid)
+                )),
+            }
+        };
+        
+        // Get the latest version to determine next semver (for rollback)
+        let latest_version = {
+            let mut stmt = tx.prepare(
+                "SELECT semver, uuid FROM versions 
+                 WHERE prompt_uuid = ?1 
+                 ORDER BY created_at DESC, semver DESC
+                 LIMIT 1"
+            )?;
+            
+            let mut rows = stmt.query_map([&prompt_uuid], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            
+            rows.next().transpose()?
+        };
+        
+        let (new_semver, parent_uuid) = match latest_version {
+            Some((latest_semver, latest_uuid)) => {
+                let new_semver = bump_patch_version(&latest_semver)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                (new_semver, Some(latest_uuid))
+            }
+            None => {
+                ("1.0.0".to_string(), None)
+            }
+        };
+        
+        // Insert new version (no content duplication check for rollback)
+        tx.execute(
+            "INSERT INTO versions (uuid, prompt_uuid, semver, body, created_at, parent_uuid) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                &new_version_uuid,
+                &prompt_uuid,
+                &new_semver,
+                &rollback_body,
+                &now,
+                &parent_uuid
+            ],
+        )?;
+        
+        // Update prompt's updated_at timestamp
+        tx.execute(
+            "UPDATE prompts SET updated_at = ?1 WHERE uuid = ?2",
+            params![&now, &prompt_uuid],
+        )?;
+        
+        Ok((Version {
+            uuid: new_version_uuid.clone(),
+            prompt_uuid: prompt_uuid.clone(),
+            semver: new_semver.clone(),
+            body: rollback_body.clone(),
+            metadata: None,
+            created_at: now.clone(),
+            parent_uuid,
+        }, prompt_title, prompt_tags, new_semver))
+    })?;
+    
+    // Sync to file system after successful database transaction
+    let tags: Vec<String> = serde_json::from_str(&new_version.2)
+        .unwrap_or_else(|_| Vec::new());
+    
+    if let Err(e) = sync_version_to_file(&app_handle, &prompt_uuid, &new_version.1, &new_version.0.body, &new_version.3, &tags) {
+        log::warn!("Failed to sync rollback version to file: {}", e);
+    }
+    
+    let final_version = new_version.0;
+    
+    log::info!("Successfully rolled back to version {}, created new version {}", 
+               version_uuid, final_version.semver);
+    
+    Ok(final_version)
 }

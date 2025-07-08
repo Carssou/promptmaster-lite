@@ -70,11 +70,12 @@ Available Rust commands accessible from frontend:
 - `save_prompt(title, content, tags, app_handle)` - Save new prompt with validation and transactions
 - `list_prompts(app_handle)` - Get all prompts from database with error handling
 
-### Version Management (NEW)
+### Version Management
 - `get_latest_version(prompt_uuid)` - Returns latest version content for a prompt  
 - `save_new_version(prompt_uuid, body, app_handle)` - Creates new version with auto-bump (1.0.0 → 1.0.1)
 - `list_versions(prompt_uuid)` - Lists all versions for a prompt ordered by creation time
 - `get_version_by_uuid(version_uuid)` - Retrieves specific version by UUID
+- `rollback_to_version(version_uuid, app_handle)` - Creates new version with old content (rollback)
 
 All commands include:
 - Input validation and sanitization
@@ -119,7 +120,7 @@ All commands include:
 - Monaco Editor with syntax highlighting and error markers
 - Live preview with variable substitution and API key stripping
 - High-contrast diff viewer with color-blind friendly theme
-- Keyboard shortcuts: `Cmd+S` (save), `Cmd+D` (diff), `Esc` (exit), `Cmd+N` (new prompt)
+- Keyboard shortcuts: `Cmd+S` (save), `Cmd+D` (auto-diff current vs previous), `Esc` (exit diff), `Cmd+N` (new prompt)
 - Resizable panels with professional 3-panel layout
 
 ### Variable System (UPDATED)
@@ -136,34 +137,42 @@ All commands include:
 - Cost tracking: token counts and USD costs  
 - Full-text search with FTS5
 
-## Production Status (2025-07-07)
+## Production Status (2025-07-08 - v0.3.0)
 
 ### ✅ COMPLETED & WORKING
 - **Monaco Editor**: Full markdown editing with syntax highlighting
 - **Version Management**: Auto-incrementing versions (1.0.0 → 1.0.1 → 1.0.2)
+- **Version History**: Real-time version sidebar with rollback functionality
+- **Rollback System**: Creates new versions with old content (non-destructive)
 - **Database Integration**: Real SQLite operations, no mock data
 - **Variable System**: Real-time `{{variable}}` detection and substitution
 - **Live Preview**: Markdown rendering with variable substitution
-- **File System Sync**: Automatic .md file generation
+- **Diff Viewer**: Auto-diff with Cmd+D comparing current vs previous version
+- **File System Sync**: Automatic .md file generation with proper tag preservation
 - **Error Handling**: Comprehensive null checks and graceful fallbacks
 - **Performance**: Optimized SQL queries, debounced operations
 
-### 🐛 CRITICAL BUGS FIXED
+### 🐛 CRITICAL BUGS FIXED (v0.3.0)
 - **SQLite Query Error**: Fixed `reverse()` function issue in version ordering
 - **Version Display Bug**: Now shows actual current version instead of always "v1.0.0"
 - **Content Loading**: Loads real prompt content instead of "# New Prompt" placeholder
 - **Null Reference Errors**: Added proper `prompt?.version` safety checks
 - **Mock Data Pollution**: Removed hardcoded test variables
+- **Duplicate Versions**: Fixed race conditions in version bump logic
+- **Tags Not Preserved**: Fixed tuple indexing bug in `sync_version_to_file`
+- **File Watcher Conflicts**: Added existence check to prevent duplicate creation
+- **Blocked Confirmation Dialogs**: Replaced native `confirm()` with React modals
+- **Database Constraints**: Added unique constraints on `(prompt_uuid, semver)`
 
 ### 🎯 READY FOR USE
-**Phase 1 & 2**: Production-ready for prompt editing, versioning, and variable management
+**Phase 1, 2 & 3**: Production-ready for complete prompt editing, versioning, history, and rollback
 
 ### 🔧 IMPORTANT NOTES FOR DEVELOPERS
 - **Database Location**: `~/Documents/PromptMaster/promptmaster.db`
 - **Version Ordering**: Uses `ORDER BY created_at DESC` (not complex semver parsing)
 - **Variable Detection**: No frontmatter required - just use `{{variable_name}}` in content
 - **Null Safety**: All prompt operations include proper null checks (`prompt?.version`)
-- **IPC Integration**: All 6 Tauri commands working with real database
+- **IPC Integration**: All 7 Tauri commands working with real database (including rollback)
 - **Build Status**: Both frontend and backend compile successfully
 
 ## Robustness Features

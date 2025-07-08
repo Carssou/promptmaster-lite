@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, GitBranch, RotateCcw } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface Version {
   uuid: string;
@@ -7,6 +8,23 @@ interface Version {
   created_at: string;
   body: string;
   isLatest: boolean;
+}
+
+interface BackendVersionInfo {
+  uuid: string;
+  semver: string;
+  created_at: string;
+  parent_uuid?: string;
+}
+
+interface BackendVersion {
+  uuid: string;
+  prompt_uuid: string;
+  semver: string;
+  body: string;
+  metadata?: string;
+  created_at: string;
+  parent_uuid?: string;
 }
 
 interface VersionHistoryProps {
@@ -30,52 +48,99 @@ export function VersionHistory({
   const [loading, setLoading] = useState(true);
   const [selectedVersions, setSelectedVersions] = useState<Version[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [rollbackConfirmation, setRollbackConfirmation] = useState<{
+    version: Version;
+    show: boolean;
+  } | null>(null);
 
-  // Mock data for now - will be replaced with IPC calls
+  // Load versions from backend
   useEffect(() => {
+    let isCancelled = false;
+    
     const loadVersions = async () => {
+      if (isCancelled) return;
+      
       try {
         setLoading(true);
         
-        // Mock version data
-        const mockVersions: Version[] = [
-          {
-            uuid: 'v1',
-            semver: '2.1.2',
-            created_at: '2025-07-06T08:32:00Z',
-            body: 'Latest version content...',
-            isLatest: true
-          },
-          {
-            uuid: 'v2',
-            semver: '2.1.1',
-            created_at: '2025-07-06T08:21:00Z',
-            body: 'Previous version content...',
-            isLatest: false
-          },
-          {
-            uuid: 'v3',
-            semver: '2.1.0',
-            created_at: '2025-07-05T21:14:00Z',
-            body: 'Even older version content...',
-            isLatest: false
-          }
-        ];
+        // Get version list from backend
+        const backendVersions = await invoke<BackendVersionInfo[]>('list_versions', { 
+          promptUuid 
+        });
         
-        setVersions(mockVersions);
-        setError(null);
+        if (backendVersions.length === 0) {
+          setVersions([]);
+          setError(null);
+          return;
+        }
+        
+        // Load full version data for each version (including body)
+        const versionPromises = backendVersions.map(async (versionInfo, index) => {
+          try {
+            const fullVersion = await invoke<BackendVersion | null>('get_version_by_uuid', {
+              versionUuid: versionInfo.uuid
+            });
+            
+            if (fullVersion) {
+              return {
+                uuid: fullVersion.uuid,
+                semver: fullVersion.semver,
+                created_at: fullVersion.created_at,
+                body: fullVersion.body,
+                isLatest: index === 0 // First item is latest due to ORDER BY created_at DESC
+              };
+            }
+            return null;
+          } catch (err) {
+            console.error(`Error loading version ${versionInfo.uuid}:`, err);
+            return null;
+          }
+        });
+        
+        const fullVersions = await Promise.all(versionPromises);
+        const validVersions = fullVersions.filter((v): v is Version => v !== null);
+        
+        // Deduplicate versions by UUID (in case of React StrictMode double-execution)
+        const uniqueVersions = validVersions.filter((version, index, array) => 
+          array.findIndex(v => v.uuid === version.uuid) === index
+        );
+        
+        console.log(`Loading ${backendVersions.length} versions, got ${validVersions.length} valid, ${uniqueVersions.length} unique`);
+        
+        if (!isCancelled) {
+          console.log('Setting versions in VersionHistory:', uniqueVersions.map(v => ({
+            semver: v.semver, 
+            isLatest: v.isLatest,
+            uuid: v.uuid
+          })));
+          setVersions(uniqueVersions);
+          setError(null);
+        }
       } catch (err) {
-        setError('Failed to load version history');
-        console.error('Error loading versions:', err);
+        if (!isCancelled) {
+          setError('Failed to load version history');
+          console.error('Error loading versions:', err);
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     if (promptUuid) {
       loadVersions();
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [promptUuid]);
+
+  // Debug: Monitor rollbackConfirmation state changes
+  useEffect(() => {
+    console.log('rollbackConfirmation state changed:', rollbackConfirmation);
+  }, [rollbackConfirmation]);
 
   const handleVersionClick = (version: Version, event: React.MouseEvent) => {
     if (event.shiftKey && selectedVersions.length === 1) {
@@ -94,9 +159,24 @@ export function VersionHistory({
   const handleRollback = (version: Version, event: React.MouseEvent) => {
     event.stopPropagation();
     
-    if (confirm(`Are you sure you want to rollback to version ${version.semver}? This will create a new version with the old content.`)) {
-      onVersionRollback(version);
+    console.log('Rollback button clicked for version:', version.semver);
+    console.log('Setting rollbackConfirmation state to:', { version, show: true });
+    
+    // Show confirmation dialog
+    setRollbackConfirmation({ version, show: true });
+  };
+
+  const confirmRollback = () => {
+    if (rollbackConfirmation) {
+      console.log('Calling onVersionRollback for version:', rollbackConfirmation.version);
+      onVersionRollback(rollbackConfirmation.version);
+      setRollbackConfirmation(null);
     }
+  };
+
+  const cancelRollback = () => {
+    console.log('Rollback cancelled');
+    setRollbackConfirmation(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -170,12 +250,19 @@ export function VersionHistory({
                 
                 {!version.isLatest && (
                   <button
-                    onClick={(e) => handleRollback(version, e)}
-                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                    onClick={(e) => {
+                      console.log('Raw button click event for version:', version.semver);
+                      handleRollback(version, e);
+                    }}
+                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded"
                     title={`Rollback to ${version.semver}`}
+                    style={{ zIndex: 10, position: 'relative' }}
                   >
                     <RotateCcw size={14} />
                   </button>
+                )}
+                {version.isLatest && (
+                  <div className="text-xs text-gray-400">Current</div>
                 )}
               </div>
               
@@ -196,6 +283,38 @@ export function VersionHistory({
       {versions.length === 0 && (
         <div className="p-4 text-center text-gray-500 text-sm">
           No version history available
+        </div>
+      )}
+
+      {/* Rollback Confirmation Dialog */}
+      {(rollbackConfirmation?.show || false) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Confirm Rollback
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to rollback to version{' '}
+              <span className="font-mono font-medium">
+                {rollbackConfirmation.version.semver}
+              </span>
+              ? This will create a new version with the old content.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelRollback}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRollback}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              >
+                Rollback
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -63,7 +63,7 @@ export function EditorScreen() {
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [diffVersions, setDiffVersions] = useState<{ a: Version; b: Version } | null>(null);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(true);
   const [showVariables, setShowVariables] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -225,18 +225,114 @@ export function EditorScreen() {
 
   // Handle version rollback
   const handleVersionRollback = useCallback(async (version: Version) => {
+    console.log('handleVersionRollback called with version:', version);
+    
+    if (!prompt) {
+      console.log('No prompt available, aborting rollback');
+      return;
+    }
+    
     try {
-      // Mock rollback operation - will be replaced with IPC call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('Calling rollback_to_version IPC with versionUuid:', version.uuid);
       
-      setEditorContent(version.body);
+      // Call the backend rollback function
+      const newVersion = await invoke<BackendVersion>('rollback_to_version', {
+        versionUuid: version.uuid
+      });
+      
+      console.log('Rollback IPC successful, new version:', newVersion);
+      
+      // Update the editor content with the rolled back content
+      setEditorContent(newVersion.body);
       setViewMode('edit');
       
-      console.log(`Rolled back to version ${version.semver}`);
+      // Update the prompt with the new version info
+      const updatedPrompt = {
+        ...prompt,
+        content: newVersion.body,
+        version: newVersion.semver,
+        modified_at: newVersion.created_at
+      };
+      
+      setPrompt(updatedPrompt);
+      setHasUnsavedChanges(false);
+      
+      // Show success message
+      toast.success(`Rolled back to ${version.semver}, created new version ${newVersion.semver}`, {
+        duration: 4000,
+        icon: '↩️',
+      });
+      
+      console.log(`Rolled back to version ${version.semver}, created new version ${newVersion.semver}`);
     } catch (error) {
       console.error('Error rolling back version:', error);
+      toast.error('Failed to rollback version. Please try again.', {
+        duration: 4000,
+        icon: '❌',
+      });
     }
-  }, []);
+  }, [prompt]);
+
+  // Handle auto-diff (Cmd+D) - compare current content with previous version
+  const handleAutoDiff = useCallback(async () => {
+    if (!prompt) return;
+    
+    try {
+      // Get version list to find the previous version
+      const versionList = await invoke<Array<{uuid: string, semver: string, created_at: string}>>('list_versions', { 
+        promptUuid: prompt.uuid 
+      });
+      
+      if (versionList.length < 2) {
+        toast('No previous version available for comparison', {
+          duration: 3000,
+          icon: '📄',
+        });
+        return;
+      }
+      
+      // Get the previous version (second item in the list)
+      const previousVersionInfo = versionList[1];
+      const previousVersion = await invoke<BackendVersion | null>('get_version_by_uuid', {
+        versionUuid: previousVersionInfo.uuid
+      });
+      
+      if (!previousVersion) {
+        toast.error('Could not load previous version for comparison');
+        return;
+      }
+      
+      // Create version objects for diff
+      const currentVersionForDiff: Version = {
+        uuid: 'current',
+        semver: `${prompt.version || '1.0.0'} (current)`,
+        created_at: new Date().toISOString(),
+        body: editorContent,
+        isLatest: true
+      };
+      
+      const previousVersionForDiff: Version = {
+        uuid: previousVersion.uuid,
+        semver: previousVersion.semver,
+        created_at: previousVersion.created_at,
+        body: previousVersion.body,
+        isLatest: false
+      };
+      
+      // Set diff mode
+      setDiffVersions({ a: previousVersionForDiff, b: currentVersionForDiff });
+      setViewMode('diff');
+      
+      toast.success(`Comparing ${previousVersion.semver} → current`, {
+        duration: 2000,
+        icon: '🔍',
+      });
+      
+    } catch (error) {
+      console.error('Error loading previous version for diff:', error);
+      toast.error('Failed to load previous version for comparison');
+    }
+  }, [prompt, editorContent]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -253,23 +349,8 @@ export function EditorScreen() {
               setViewMode('edit');
               setDiffVersions(null);
             } else {
-              // Enter diff mode with mock versions
-              const mockVersionA = {
-                uuid: 'v1',
-                semver: '1.0.0',
-                created_at: '2025-07-06T08:21:00Z',
-                body: 'Previous version of the prompt...\n\n# Old Task\n\nThis was the old content.',
-                isLatest: false
-              };
-              const mockVersionB = {
-                uuid: 'v2',
-                semver: '1.0.1',
-                created_at: '2025-07-06T08:32:00Z',
-                body: editorContent,
-                isLatest: true
-              };
-              setDiffVersions({ a: mockVersionA, b: mockVersionB });
-              setViewMode('diff');
+              // Auto-diff current content vs previous version
+              handleAutoDiff();
             }
             break;
           case 'Enter':
@@ -299,7 +380,7 @@ export function EditorScreen() {
       window.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('editor-save', handleEditorSave);
     };
-  }, [handleSave, viewMode]);
+  }, [handleSave, handleAutoDiff, viewMode]);
 
   if (loading) {
     return (

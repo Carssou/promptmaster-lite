@@ -280,19 +280,30 @@ pub fn update_prompt_from_file(
             ],
         )?;
 
-        // Insert new version if content changed
-        let version_uuid = Uuid::now_v7().to_string();
-        tx.execute(
-            "INSERT INTO versions (uuid, prompt_uuid, semver, body, created_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![
-                &version_uuid,
-                &uuid,
-                &version,
-                &body,
-                &now
-            ],
-        )?;
+        // Insert new version only if it doesn't already exist (avoid file watcher duplicates)
+        let version_exists = {
+            let mut stmt = tx.prepare("SELECT COUNT(*) FROM versions WHERE prompt_uuid = ?1 AND semver = ?2")?;
+            let count: i64 = stmt.query_row([&uuid, &version], |row| Ok(row.get(0)?))?;
+            count > 0
+        };
+        
+        if !version_exists {
+            let version_uuid = Uuid::now_v7().to_string();
+            tx.execute(
+                "INSERT INTO versions (uuid, prompt_uuid, semver, body, created_at) 
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    &version_uuid,
+                    &uuid,
+                    &version,
+                    &body,
+                    &now
+                ],
+            )?;
+            log::info!("File watcher created new version {} for prompt {}", version, uuid);
+        } else {
+            log::debug!("Version {} already exists for prompt {}, skipping duplicate creation", version, uuid);
+        }
 
         Ok(())
     })?;

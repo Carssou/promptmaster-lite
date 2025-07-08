@@ -234,9 +234,9 @@ npm install --save-dev jest-environment-jsdom
 - [x] Markdown renders correctly with syntax highlighting
 
 ### Phase 3 Complete:
-- [ ] Version history sidebar shows all versions
-- [ ] Diff viewer compares any two versions
-- [ ] Rollback functionality works
+- [x] Version history sidebar shows all versions
+- [x] Diff viewer compares any two versions
+- [x] Rollback functionality works
 
 ### Phase 4 Complete:
 - [ ] All keyboard shortcuts work as specified
@@ -305,11 +305,36 @@ src/
 - ✅ **Error Recovery**: Graceful fallbacks for missing data
 - ✅ **Build Success**: TypeScript compilation and Tauri bundling working
 
-**Phase 1 & Core Phase 2 Features: PRODUCTION READY** 🎉
+**Phase 1, 2 & 3 Features: PRODUCTION READY** 🎉
+
+### **✅ PHASE 3 COMPLETED (2025-07-08):**
+
+#### **Backend Version History & Rollback System:**
+- [x] **`list_versions_full(prompt_uuid)`** - Complete version data with content
+- [x] **`rollback_to_version(version_uuid, app_handle)`** - Creates new version with old content
+- [x] **Unique constraint** on `(prompt_uuid, semver)` to prevent duplicate versions
+- [x] **Content duplication bypass** for rollback operations (allows duplicate content)
+- [x] **Tags preservation** - Fixed bug where tags weren't preserved in new versions
+- [x] **File watcher duplicate prevention** - Prevents file watcher from creating duplicate versions
+
+#### **Frontend Version History UI:**
+- [x] **Real IPC integration** - Replaced all mock data with actual backend calls
+- [x] **React confirmation dialogs** - Custom modal instead of blocked native `confirm()`
+- [x] **Auto-diff functionality** - `Cmd+D` compares current vs previous version
+- [x] **Version history sidebar** - Shows real versions with rollback buttons
+- [x] **Click interactions** - Single click (view), Shift+click (diff), rollback button
+- [x] **Proper version progression** - v1.0.0 → v1.0.1 → v1.0.2 → v1.0.3 (rollback)
+
+#### **Critical Bug Fixes:**
+- [x] **Duplicate versions bug** - Fixed version bump logic race conditions
+- [x] **Tags not preserved** - Fixed tuple indexing bug in `sync_version_to_file`
+- [x] **File watcher conflicts** - Added existence check to prevent duplicate creation
+- [x] **Blocked confirmation dialogs** - Replaced native `confirm()` with React modals
+- [x] **Database constraint violations** - Added proper unique constraints and cleanup
 
 ### **Next Phase TODOs:**
-- [ ] **#1** Fix diff editor to show real previous data, not mockup  
-- [ ] **#2** Implement "Show only used variables" toggle to hide undefined variables so users can define them
+- [ ] **Phase 4**: Keyboard shortcuts optimization and accessibility
+- [ ] **Phase 5**: Security hardening and extensibility hooks
 
 ---
 
