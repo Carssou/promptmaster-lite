@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Save, ArrowLeft, Eye, EyeOff, History, Zap } from 'lucide-react';
@@ -168,6 +168,7 @@ export function EditorScreen() {
     setVariables(newVariables);
   }, []);
 
+
   // Save prompt
   const handleSave = async () => {
     if (!prompt || saving) return;
@@ -281,6 +282,15 @@ export function EditorScreen() {
       });
     }
   }, [prompt]);
+
+  // Memoize handlers to prevent unnecessary re-renders
+  const memoizedHandlers = useMemo(() => ({
+    onVersionSelect: handleVersionSelect,
+    onVersionDiff: handleVersionDiff,
+    onVersionRollback: handleVersionRollback,
+    onEditorChange: handleEditorChange,
+    onVariableChange: handleVariableChange
+  }), [handleVersionSelect, handleVersionDiff, handleVersionRollback, handleEditorChange, handleVariableChange]);
 
   // Handle auto-diff (Cmd+D) - compare current content with previous version
   const handleAutoDiff = useCallback(async () => {
@@ -513,13 +523,13 @@ export function EditorScreen() {
           {/* Version History Sidebar */}
           {showVersionHistory && prompt && (
             <>
-              <Panel defaultSize={25} minSize={20} maxSize={40}>
+              <Panel defaultSize={showVariables ? 22 : 25} minSize={20} maxSize={40}>
                 <VersionHistory
                   promptUuid={prompt.uuid}
                   currentVersion={prompt.version}
-                  onVersionSelect={handleVersionSelect}
-                  onVersionDiff={handleVersionDiff}
-                  onVersionRollback={handleVersionRollback}
+                  onVersionSelect={memoizedHandlers.onVersionSelect}
+                  onVersionDiff={memoizedHandlers.onVersionDiff}
+                  onVersionRollback={memoizedHandlers.onVersionRollback}
                   className="h-full"
                 />
               </Panel>
@@ -528,7 +538,15 @@ export function EditorScreen() {
           )}
 
           {/* Editor/Preview Area */}
-          <Panel defaultSize={showVariables ? 60 : 75} minSize={40}>
+          <Panel 
+            defaultSize={
+              showVersionHistory && showVariables ? 56 : 
+              showVersionHistory ? 75 : 
+              showVariables ? 75 : 
+              100
+            } 
+            minSize={40}
+          >
             <div className="h-full flex flex-col">
               {viewMode === 'diff' && diffVersions ? (
                 <PromptDiff
@@ -551,7 +569,7 @@ export function EditorScreen() {
                 <div className="flex-1 min-h-0">
                   <PromptEditor
                     value={editorContent}
-                    onChange={handleEditorChange}
+                    onChange={memoizedHandlers.onEditorChange}
                     markers={editorMarkers}
                   />
                 </div>
@@ -563,11 +581,11 @@ export function EditorScreen() {
           {showVariables && (
             <>
               <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
-              <Panel defaultSize={25} minSize={20} maxSize={40}>
+              <Panel defaultSize={22} minSize={20} maxSize={40}>
                 <VariablePanel
                   content={editorContent}
                   variables={variables}
-                  onChange={handleVariableChange}
+                  onChange={memoizedHandlers.onVariableChange}
                   className="h-full"
                 />
               </Panel>

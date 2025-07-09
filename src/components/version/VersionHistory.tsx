@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Clock, GitBranch, RotateCcw } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
+import { usePerformanceMonitor, PerformanceProfiler } from '../../hooks/usePerformanceMonitor';
+import { VersionItemSkeleton } from '../ui/Skeleton';
 
 interface Version {
   uuid: string;
@@ -10,12 +12,6 @@ interface Version {
   isLatest: boolean;
 }
 
-interface BackendVersionInfo {
-  uuid: string;
-  semver: string;
-  created_at: string;
-  parent_uuid?: string;
-}
 
 interface BackendVersion {
   uuid: string;
@@ -34,15 +30,18 @@ interface VersionHistoryProps {
   onVersionDiff: (versionA: Version, versionB: Version) => void;
   onVersionRollback: (version: Version) => void;
   className?: string;
+  height?: number;
 }
 
-export function VersionHistory({ 
+
+function VersionHistoryComponent({ 
   promptUuid, 
   currentVersion,
   onVersionSelect,
   onVersionDiff,
   onVersionRollback,
-  className = ''
+  className = '',
+  height = 400
 }: VersionHistoryProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +51,11 @@ export function VersionHistory({
     version: Version;
     show: boolean;
   } | null>(null);
+  
+  // Performance monitoring
+  usePerformanceMonitor('VersionHistory');
 
-  // Load versions from backend
+  // Load versions from backend using optimized single query
   useEffect(() => {
     let isCancelled = false;
     
@@ -63,8 +65,8 @@ export function VersionHistory({
       try {
         setLoading(true);
         
-        // Get version list from backend
-        const backendVersions = await invoke<BackendVersionInfo[]>('list_versions', { 
+        // Use optimized single query to get all version data at once
+        const backendVersions = await invoke<BackendVersion[]>('list_versions_full', { 
           promptUuid 
         });
         
@@ -74,38 +76,21 @@ export function VersionHistory({
           return;
         }
         
-        // Load full version data for each version (including body)
-        const versionPromises = backendVersions.map(async (versionInfo, index) => {
-          try {
-            const fullVersion = await invoke<BackendVersion | null>('get_version_by_uuid', {
-              versionUuid: versionInfo.uuid
-            });
-            
-            if (fullVersion) {
-              return {
-                uuid: fullVersion.uuid,
-                semver: fullVersion.semver,
-                created_at: fullVersion.created_at,
-                body: fullVersion.body,
-                isLatest: index === 0 // First item is latest due to ORDER BY created_at DESC
-              };
-            }
-            return null;
-          } catch (err) {
-            console.error(`Error loading version ${versionInfo.uuid}:`, err);
-            return null;
-          }
-        });
-        
-        const fullVersions = await Promise.all(versionPromises);
-        const validVersions = fullVersions.filter((v): v is Version => v !== null);
+        // Convert backend versions to frontend format
+        const frontendVersions = backendVersions.map((version, index) => ({
+          uuid: version.uuid,
+          semver: version.semver,
+          created_at: version.created_at,
+          body: version.body,
+          isLatest: index === 0 // First item is latest due to ORDER BY created_at DESC
+        }));
         
         // Deduplicate versions by UUID (in case of React StrictMode double-execution)
-        const uniqueVersions = validVersions.filter((version, index, array) => 
+        const uniqueVersions = frontendVersions.filter((version, index, array) => 
           array.findIndex(v => v.uuid === version.uuid) === index
         );
         
-        console.log(`Loading ${backendVersions.length} versions, got ${validVersions.length} valid, ${uniqueVersions.length} unique`);
+        console.log(`Loading ${backendVersions.length} versions (max 5 recent), got ${uniqueVersions.length} unique`);
         
         if (!isCancelled) {
           console.log('Setting versions in VersionHistory:', uniqueVersions.map(v => ({
@@ -179,7 +164,7 @@ export function VersionHistory({
     setRollbackConfirmation(null);
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -187,15 +172,19 @@ export function VersionHistory({
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
 
   if (loading) {
     return (
-      <div className={`p-4 ${className}`}>
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+      <div className={`bg-white border-r border-gray-200 ${className}`}>
+        <div className="p-4 border-b border-gray-200">
+          <div className="h-5 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+          <div className="h-3 bg-gray-200 rounded w-48 animate-pulse"></div>
+        </div>
+        <div className="space-y-0">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <VersionItemSkeleton key={index} />
+          ))}
         </div>
       </div>
     );
@@ -210,74 +199,78 @@ export function VersionHistory({
   }
 
   return (
-    <div className={`bg-white border-r border-gray-200 ${className}`}>
-      <div className="p-4 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">Version History</h3>
-        {selectedVersions.length === 1 && (
-          <p className="text-xs text-gray-500">
-            Shift+click another version to compare
-          </p>
-        )}
-      </div>
+    <PerformanceProfiler id="VersionHistory">
+      <div className={`bg-white border-r border-gray-200 ${className}`}>
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-2">Version History</h3>
+          {selectedVersions.length === 1 && (
+            <p className="text-xs text-gray-500">
+              Shift+click another version to compare
+            </p>
+          )}
+        </div>
 
-      <div className="overflow-y-auto">
-        {versions.map((version) => {
-          const isSelected = selectedVersions.some(v => v.uuid === version.uuid);
-          const isCurrent = version.semver === currentVersion;
-          
-          return (
-            <div
-              key={version.uuid}
-              onClick={(e) => handleVersionClick(version, e)}
-              className={`p-3 border-b border-gray-100 cursor-pointer transition-colors ${
-                isSelected 
-                  ? 'bg-blue-50 border-blue-200' 
-                  : 'hover:bg-gray-50'
-              } ${isCurrent ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-2">
-                  <GitBranch size={14} className="text-gray-400" />
-                  <span className="font-mono text-sm font-medium">
-                    {version.semver}
-                  </span>
-                  {version.isLatest && (
-                    <span className="text-green-600 text-xs bg-green-100 px-2 py-0.5 rounded">
-                      Latest
+      {/* Version list (max 5 versions) */}
+      <div className="flex-1">
+        <div className="overflow-y-auto" style={{ height }}>
+          {versions.map((version) => {
+            const isSelected = selectedVersions.some(v => v.uuid === version.uuid);
+            const isCurrent = version.semver === currentVersion;
+            
+            return (
+              <div
+                key={version.uuid}
+                onClick={(e) => handleVersionClick(version, e)}
+                className={`p-3 border-b border-gray-100 cursor-pointer transition-colors ${
+                  isSelected 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : 'hover:bg-gray-50'
+                } ${isCurrent ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center space-x-2">
+                    <GitBranch size={14} className="text-gray-400" />
+                    <span className="font-mono text-sm font-medium">
+                      {version.semver}
                     </span>
+                    {version.isLatest && (
+                      <span className="text-green-600 text-xs bg-green-100 px-2 py-0.5 rounded">
+                        Latest
+                      </span>
+                    )}
+                  </div>
+                  
+                  {!version.isLatest && (
+                    <button
+                      onClick={(e) => {
+                        console.log('Raw button click event for version:', version.semver);
+                        handleRollback(version, e);
+                      }}
+                      className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded"
+                      title={`Rollback to ${version.semver}`}
+                      style={{ zIndex: 10, position: 'relative' }}
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                  {version.isLatest && (
+                    <div className="text-xs text-gray-400">Current</div>
                   )}
                 </div>
                 
-                {!version.isLatest && (
-                  <button
-                    onClick={(e) => {
-                      console.log('Raw button click event for version:', version.semver);
-                      handleRollback(version, e);
-                    }}
-                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded"
-                    title={`Rollback to ${version.semver}`}
-                    style={{ zIndex: 10, position: 'relative' }}
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                )}
-                {version.isLatest && (
-                  <div className="text-xs text-gray-400">Current</div>
-                )}
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock size={12} className="mr-1" />
+                  {formatDate(version.created_at)}
+                </div>
+                
+                {/* Preview of content changes */}
+                <div className="mt-2 text-xs text-gray-600 truncate">
+                  {version.body?.substring(0, 100) || 'No content'}...
+                </div>
               </div>
-              
-              <div className="flex items-center text-xs text-gray-500">
-                <Clock size={12} className="mr-1" />
-                {formatDate(version.created_at)}
-              </div>
-              
-              {/* Preview of content changes */}
-              <div className="mt-2 text-xs text-gray-600 truncate">
-                {version.body.substring(0, 100)}...
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {versions.length === 0 && (
@@ -318,5 +311,8 @@ export function VersionHistory({
         </div>
       )}
     </div>
+    </PerformanceProfiler>
   );
 }
+
+export const VersionHistory = memo(VersionHistoryComponent);

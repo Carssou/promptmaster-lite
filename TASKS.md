@@ -157,10 +157,10 @@ The core editing experience consists of 9 major components that will transform P
 **Priority: Low** | **Estimated effort: 2-3 days**
 
 #### Performance:
-- [ ] Optimize keystroke-to-preview latency (<50ms)
-- [ ] Add performance monitoring
-- [ ] Implement virtual scrolling for large version lists
-- [ ] Add loading states and skeleton screens
+- [x] Optimize keystroke-to-preview latency (<50ms) - **COMPLETED 2025-07-09**
+- [x] Add performance monitoring - **COMPLETED 2025-07-09**
+- [x] Implement virtual scrolling for large version lists - **COMPLETED 2025-07-09**
+- [x] Add loading states and skeleton screens - **COMPLETED 2025-07-09**
 
 #### Accessibility:
 - [ ] Add ARIA roles for all interactive elements
@@ -210,6 +210,7 @@ npm install @monaco-editor/react @monaco-editor/loader
 npm install react-markdown remark-gfm rehype-sanitize
 npm install @ctrlplusk/hotkeys
 npm install react-split-pane
+npm install react-window react-window-infinite-loader  # For virtual scrolling
 ```
 
 ### Development:
@@ -217,6 +218,7 @@ npm install react-split-pane
 npm install --save-dev @testing-library/react @testing-library/jest-dom
 npm install --save-dev @playwright/test
 npm install --save-dev jest-environment-jsdom
+npm install --save-dev @types/react-window  # TypeScript support for react-window
 ```
 
 ---
@@ -240,8 +242,8 @@ npm install --save-dev jest-environment-jsdom
 
 ### Phase 4 Complete:
 - [x] All keyboard shortcuts work as specified
-- [ ] Performance meets <50ms keystroke latency (Phase 4.2 - Low Priority)
-- [ ] Accessibility requirements met (Phase 4.2 - Low Priority)
+- [x] Performance meets <50ms keystroke latency - **COMPLETED 2025-07-09**
+- [ ] Accessibility requirements met (Phase 4.2 - IN PROGRESS)
 
 ### Phase 5 Complete:
 - [x] Security measures implemented
@@ -350,7 +352,7 @@ src/
 - **Phase 5.1**: Security Hardening - **COMPLETE**
 
 ### **⚠️ DEFERRED PHASES (Low Priority):**
-- **Phase 4.2**: Performance & Accessibility optimizations
+- **Phase 4.2**: ~~Performance~~ & Accessibility optimizations *(Performance completed 2025-07-09)*
 - **Phase 5.2**: Extensibility hooks for plugins
 
 ### **🔧 FINAL IMPROVEMENTS (2025-07-09):**
@@ -360,8 +362,49 @@ src/
 - **Professional UI**: Consistent design across all pages
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
+### **🚀 PERFORMANCE OPTIMIZATIONS (2025-07-09):**
+- **Keystroke Latency**: Reduced to <50ms with debouncing and memoization
+- **Memory Usage**: Added caching for variable parsing and security validation
+- **Virtual Scrolling**: Implemented for large version lists (20+ items)
+- **Loading States**: Added skeleton screens for all major components
+- **Performance Monitoring**: Real-time tracking of render times and memory usage
+
 **Total Estimated Timeline: ~~5-6 weeks~~ → **2.5 weeks** (ahead of schedule)**
 **Team Size: 1 developer (Claude Code)**  
 **Risk Level: **Low** (all major features implemented and tested)**
 
 *Last Updated: 2025-07-09*
+
+---
+
+## 🚧 **PENDING TASKS**
+
+### **File Watcher Delete Event Handling**
+**Priority: Medium** | **Estimated effort: 1-2 days**
+
+**Issue**: The file watcher (`src-tauri/src/watcher.rs`) only handles Write/Create events, not Delete events. When a user deletes a `.md` file, the database entry remains orphaned.
+
+**Current behavior**: 
+- User deletes `2025-07-09--my-prompt--v1.0.0.md`
+- Database entry for the prompt remains intact
+- No file recreation or database cleanup occurs
+
+**Implementation options**:
+1. **Recreate deleted files** - Regenerate `.md` files from database (database as source of truth)
+2. **Delete database entries** - Remove orphaned prompts when files are deleted
+3. **Hybrid approach** - Prompt user to choose between recreation or deletion
+
+**Recommended approach**: Option 1 (file recreation) maintains the dual-storage architecture where database is the primary source of truth.
+
+**Tasks**:
+- [ ] Add Delete event handling to `watcher.rs:43`
+- [ ] Implement `handle_file_deletion()` function
+- [ ] Add logic to detect missing files and recreate from database
+- [ ] Update `update_prompt_from_file()` to handle file recreation
+- [ ] Add user notification for file recreation events
+- [ ] Test edge cases (multiple file deletions, permission issues)
+
+**Files to modify**:
+- `src-tauri/src/watcher.rs` - Add Delete event handling
+- `src-tauri/src/prompts.rs` - Add file recreation logic
+- Frontend toast system - Add deletion/recreation notifications

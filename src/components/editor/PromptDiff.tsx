@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import { X, Copy, Download } from 'lucide-react';
 import * as monaco from 'monaco-editor';
+import { DiffSkeleton } from '../ui/Skeleton';
 
 interface Version {
   uuid: string;
@@ -236,6 +237,7 @@ ${modifiedText}`;
         <DiffEditor
           height={height}
           language="markdown"
+          loading={<DiffSkeleton className="h-full" />}
           theme="vs-dark"
           original={olderVersion.body}
           modified={newerVersion.body}

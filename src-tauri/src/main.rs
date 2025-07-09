@@ -11,7 +11,7 @@ mod logging;
 
 use db::init_database;
 use prompts::{save_prompt, list_prompts};
-use versions::{get_latest_version, save_new_version, list_versions, get_version_by_uuid, rollback_to_version};
+use versions::{get_latest_version, save_new_version, list_versions, list_versions_full, get_version_by_uuid, rollback_to_version};
 use watcher::start_file_watcher;
 use logging::init_app_logging;
 
@@ -52,6 +52,7 @@ pub fn run() {
             get_latest_version, 
             save_new_version, 
             list_versions, 
+            list_versions_full,
             get_version_by_uuid,
             rollback_to_version
         ])

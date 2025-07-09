@@ -22,7 +22,7 @@ npm run dev
 npm run build
 ```
 
-## Architecture
+## Key Architecture Notes
 
 ### Local-First Design
 - **Dual Storage**: SQLite database for structured data + markdown files for human-readable backups
@@ -35,60 +35,12 @@ npm run build
 - **Styling**: Tailwind CSS 3.4.17
 - **State Management**: Zustand 5.0.6
 
-### Key Components
+### Database Operations
+- **Location**: `~/Documents/PromptMaster/promptmaster.db`
+- **Version Ordering**: Uses `ORDER BY created_at DESC` (not complex semver parsing)
+- **Null Safety**: All prompt operations include proper null checks (`prompt?.version`)
 
-#### Frontend Architecture
-- **EditorScreen**: Main editing interface at `src/pages/EditorScreen.tsx`
-- **NewPrompt**: Enhanced prompt creation at `src/pages/NewPrompt.tsx`
-- **PromptEditor**: Monaco Editor wrapper at `src/components/editor/PromptEditor.tsx`
-- **LivePreview**: Markdown renderer at `src/components/editor/LivePreview.tsx`
-- **PromptDiff**: Monaco Diff Viewer at `src/components/editor/PromptDiff.tsx`
-- **VersionHistory**: Version sidebar at `src/components/version/VersionHistory.tsx`
-- **VariablePanel**: Variable management at `src/components/variables/VariablePanel.tsx`
-- **KeyboardShortcutsModal**: Help modal at `src/components/help/KeyboardShortcutsModal.tsx`
-- **Variable Parser**: Core engine at `src/services/variableParser.ts`
-- **Security Service**: Content validation at `src/services/securityService.ts`
-
-#### Backend Components
-- **Database Manager**: Thread-safe connection pooling in `src-tauri/src/database.rs`
-- **Database Layer**: Singleton management in `src-tauri/src/db.rs`
-- **Prompt Management**: Core business logic in `src-tauri/src/prompts.rs`
-- **Version Management**: Auto-versioning system in `src-tauri/src/versions.rs`
-- **File Watcher**: Selective .md file monitoring in `src-tauri/src/watcher.rs`
-- **Error Handling**: Custom error types in `src-tauri/src/error.rs`
-- **Security Validation**: Content sanitization in `src-tauri/src/security.rs`
-- **Application Logging**: Secure logging system in `src-tauri/src/logging.rs`
-
-## Database Schema
-
-Four main tables:
-1. **prompts** - Core prompt metadata (uuid, title, tags, timestamps)
-2. **versions** - Versioned content with semantic versioning (1.0.0, 1.0.1, etc.)
-3. **runs** - Schema ready for performance metrics (BLEU, ROUGE, costs) - not yet implemented
-4. **prompts_fts** - Full-text search virtual table - not yet implemented
-
-## Tauri Commands
-
-Available Rust commands accessible from frontend:
-
-### Prompt Management
-- `save_prompt(title, content, tags, app_handle)` - Save new prompt with validation and transactions
-- `list_prompts(app_handle)` - Get all prompts from database with error handling
-
-### Version Management
-- `get_latest_version(prompt_uuid)` - Returns latest version content for a prompt  
-- `save_new_version(prompt_uuid, body, app_handle)` - Creates new version with auto-bump (1.0.0 → 1.0.1)
-- `list_versions(prompt_uuid)` - Lists all versions for a prompt ordered by creation time
-- `get_version_by_uuid(version_uuid)` - Retrieves specific version by UUID
-- `rollback_to_version(version_uuid, app_handle)` - Creates new version with old content (rollback)
-
-All commands include:
-- Input validation and sanitization
-- Proper error handling with custom error types  
-- Database transactions for consistency
-- Structured logging for debugging
-
-## Development Notes
+## Development Context
 
 ### Tauri 2.0 Specifics
 - Uses modern `app_handle.path()` API instead of deprecated v1 APIs
@@ -97,131 +49,112 @@ All commands include:
 
 ### Version Control System
 - Semantic versioning for prompts with parent-child relationships
-- Immutable version history
-- Branching support for prompt variations
+- Immutable version history (1.0.0 → 1.0.1 → 1.0.2)
+- Rollback creates new version with old content (non-destructive)
 
 ### File Watcher
 - Selective monitoring of `.md` files only (ignores database/temp files)
 - Debounced file changes (500ms) to prevent rapid-fire updates
-- ~~Automatic frontmatter parsing~~ → Simplified content-only monitoring
 - Thread-safe operation with proper resource management
 
-### Error Handling & Logging
+### Variable System
+- **Automatic Detection**: Scans content for `{{variable_name}}` patterns using regex
+- **Simplified Hierarchy**: User defined values → fallback tokens `«var»` (no YAML frontmatter)
+- **Real-time Validation**: Detects unclosed braces, nested braces, invalid names
+- **Security**: API key detection and removal (`sk-\w{48}` patterns)
+
+### Performance Optimizations (v0.4.0)
+- **Keystroke Latency**: <50ms with debouncing (300ms) and memoization
+- **Memory Usage**: Map-based caching for variable parsing and security validation
+- **Virtual Scrolling**: Implemented for large version lists (20+ items)
+- **Loading States**: Skeleton screens for all major components
+
+## Available Tauri Commands
+
+### Prompt Management
+- `save_prompt(title, content, tags, app_handle)` - Save new prompt with validation
+- `list_prompts(app_handle)` - Get all prompts from database
+
+### Version Management
+- `get_latest_version(prompt_uuid)` - Returns latest version content
+- `save_new_version(prompt_uuid, body, app_handle)` - Creates new version with auto-bump
+- `list_versions(prompt_uuid)` - Lists all versions ordered by creation time
+- `get_version_by_uuid(version_uuid)` - Retrieves specific version
+- `rollback_to_version(version_uuid, app_handle)` - Creates new version with old content
+
+All commands include input validation, proper error handling, database transactions, and structured logging.
+
+## Database Schema
+
+Four main tables:
+1. **prompts** - Core prompt metadata (uuid, title, tags, timestamps)
+2. **versions** - Versioned content with semantic versioning
+3. **runs** - Schema ready for performance metrics (not yet implemented)
+4. **prompts_fts** - Full-text search virtual table (not yet implemented)
+
+## Error Handling & Logging
 - Custom `AppError` type with proper error propagation
 - Structured logging with `env_logger` (set `RUST_LOG=debug` for details)
-- Input validation for all user inputs (title length, content size, tag limits)
+- Input validation for all user inputs
 - Database transactions ensure data consistency
 
-### Database Architecture
-- Singleton database manager with connection pooling
-- Thread-safe access with proper locking mechanisms
-- Automatic schema creation on first run
-- Transaction support for multi-operation consistency
+## Production Status (v0.4.0)
 
-### Frontend Robustness
-- Debounced file watcher events to prevent toast spam
-- Silent reloads for background file changes
-- Loading states and proper error feedback
-- Monaco Editor with syntax highlighting and error markers
-- Live preview with variable substitution and API key stripping
-- High-contrast diff viewer with color-blind friendly theme
-- Keyboard shortcuts: `Cmd+S` (save), `Cmd+D` (auto-diff current vs previous), `Esc` (exit diff), `Cmd+N` (new prompt)
-- Resizable panels with professional 3-panel layout
-
-### Variable System (UPDATED)
-- **Automatic Detection**: Scans content for `{{variable_name}}` patterns using regex
-- **Simplified Hierarchy**: User defined values → fallback tokens `«var»` (YAML frontmatter removed for better UX)
-- **Real-time Validation**: Detects unclosed braces, nested braces, invalid names
-- **Live Preview**: Variables are substituted in markdown preview with real-time updates
-- **Security**: API key detection and removal (`sk-\w{48}` patterns)
-- **Clean UI**: Variables tagged as "Defined" (blue) or "Undefined" (red) - no complex source tracking
-- **No Frontmatter Complexity**: Removed YAML parsing to prevent user errors and corruption
-
-### Future Features (Database Schema Ready)
-- Performance tracking: BLEU scores, ROUGE scores, judge scores
-- Cost tracking: token counts and USD costs  
-- Full-text search with FTS5
-
-## Production Status (2025-07-09 - v0.4.0)
-
-### ✅ COMPLETED & WORKING
-- **Monaco Editor**: Full markdown editing with syntax highlighting across all pages
-- **Version Management**: Auto-incrementing versions (1.0.0 → 1.0.1 → 1.0.2)
-- **Version History**: Real-time version sidebar with rollback functionality
-- **Rollback System**: Creates new versions with old content (non-destructive)
-- **Database Integration**: Real SQLite operations, no mock data
+### ✅ COMPLETED FEATURES
+- **Monaco Editor**: Full markdown editing with syntax highlighting
+- **Version Management**: Auto-incrementing versions with rollback
 - **Variable System**: Real-time `{{variable}}` detection and substitution
 - **Live Preview**: Markdown rendering with variable substitution
-- **Diff Viewer**: Auto-diff with Cmd+D comparing current vs previous version
-- **File System Sync**: Automatic .md file generation with proper tag preservation
-- **Error Handling**: Comprehensive null checks and graceful fallbacks
-- **Performance**: Optimized SQL queries, debounced operations
+- **Diff Viewer**: Auto-diff with Cmd+D comparing versions
+- **File System Sync**: Automatic .md file generation
 - **Keyboard Shortcuts**: Complete hotkey system with help modal (Cmd+?)
-- **Security Hardening**: Input validation, content sanitization, logging system
-- **Consistent UI**: Professional editor experience across all pages
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Security Hardening**: Input validation, content sanitization, logging
+- **Performance**: <50ms keystroke latency, virtual scrolling, skeleton loading
 
-### 🐛 CRITICAL BUGS FIXED (v0.3.0)
-- **SQLite Query Error**: Fixed `reverse()` function issue in version ordering
-- **Version Display Bug**: Now shows actual current version instead of always "v1.0.0"
-- **Content Loading**: Loads real prompt content instead of "# New Prompt" placeholder
-- **Null Reference Errors**: Added proper `prompt?.version` safety checks
-- **Mock Data Pollution**: Removed hardcoded test variables
-- **Duplicate Versions**: Fixed race conditions in version bump logic
-- **Tags Not Preserved**: Fixed tuple indexing bug in `sync_version_to_file`
-- **File Watcher Conflicts**: Added existence check to prevent duplicate creation
-- **Blocked Confirmation Dialogs**: Replaced native `confirm()` with React modals
-- **Database Constraints**: Added unique constraints on `(prompt_uuid, semver)`
+### 🔧 BUILD NOTES
+- Both frontend and backend compile successfully
+- All 7 Tauri commands working with real database
+- Cross-platform support (Windows, macOS, Linux)
 
-### 🎯 NEW FEATURES ADDED (v0.4.0)
-- **Keyboard Shortcuts Help**: Comprehensive modal with all shortcuts (Cmd+?)
-- **Enhanced NewPrompt Page**: Replaced basic form with Monaco Editor
-- **Security Validation**: Content sanitization prevents HTML injection
-- **Improved Error Messages**: Detailed backend validation errors shown to users
-- **Application Logging**: Secure logging system with PII protection
-- **Cross-Platform Shortcuts**: Dynamic modifier keys (⌘ on Mac, Ctrl on Windows)
-- **Variable Guidance**: Clear instructions on variable usage
-- **Consistent Security**: All entry points use same validation system
+### 🚧 PENDING TASKS
+- **Accessibility**: ARIA roles, keyboard navigation, screen reader support
+- **File Watcher**: Delete event handling (recreate files from database)
+- **Testing**: Unit tests for variable parser, E2E tests for core flows
 
-### 🎯 READY FOR USE
-**Phase 1, 2, 3, 4.1 & 5.1**: Production-ready for complete prompt editing, versioning, history, rollback, shortcuts, and security
+## Common Issues & Solutions
 
-### 🔧 IMPORTANT NOTES FOR DEVELOPERS
-- **Database Location**: `~/Documents/PromptMaster/promptmaster.db`
-- **Version Ordering**: Uses `ORDER BY created_at DESC` (not complex semver parsing)
-- **Variable Detection**: No frontmatter required - just use `{{variable_name}}` in content
-- **Null Safety**: All prompt operations include proper null checks (`prompt?.version`)
-- **IPC Integration**: All 7 Tauri commands working with real database (including rollback)
-- **Build Status**: Both frontend and backend compile successfully
-
-## Robustness Features
-
-### Production Ready Architecture
-- No duplicate entry points (consolidated to `main.rs`)
-- Proper resource cleanup and shutdown handling
-- Comprehensive error boundaries and recovery
-- Input sanitization to prevent injection attacks
-
-### Performance Optimizations
-- Connection pooling prevents database lock contention
-- Debounced file watching reduces CPU overhead
-- Selective file monitoring (only `.md` files)
-- Efficient regex compilation with `lazy_static`
-
-### Development Experience
-- Structured logging for debugging (`RUST_LOG=debug`)
-- Clear error messages with context
-- Automatic database schema migrations
-- Hot reload support with file watcher integration
-
-### Common Build Issues
+### Build Issues
 - Run `cargo clean` for `rlib` format errors
 - Ensure all dependencies are properly linked
 - Check platform-specific requirements (webkit2gtk on Linux)
 
-## Configuration Files
+### Performance Issues
+- Editor optimized for <50ms keystroke latency
+- Uses debouncing (300ms) and memoization for heavy operations
+- Virtual scrolling kicks in for version lists >20 items
 
-- **`.cursorrules`** - Development guidelines and coding standards
-- **`tauri.conf.json`** - Tauri app configuration
-- **`vite.config.ts`** - Vite bundler with Tauri-specific settings
-- **`tailwind.config.js`** - Tailwind CSS configuration
+### Database Issues
+- Database created automatically on first run
+- Connection pooling prevents lock contention
+- File watcher handles external .md file changes
+
+## Important Development Notes
+
+- **Database as Source of Truth**: SQLite is primary, .md files are backup
+- **No Frontmatter Complexity**: Variables use simple `{{variable}}` syntax
+- **IPC Integration**: All operations use real backend calls, no mock data
+- **Error Recovery**: Graceful fallbacks for missing data
+- **Security**: All entry points use same validation system
+
+## Development Standards
+
+**⚠️ CRITICAL**: Always check `.cursorrules` before writing code. This file contains comprehensive development guidelines including:
+- Complete code requirements (always provide full, working files)
+- Tauri 2.0 API usage patterns
+- Database operation best practices
+- TypeScript/React standards
+- Error handling patterns
+- File organization conventions
+- Testing approaches
+
+The rules in `.cursorrules` are mandatory for maintaining code quality and consistency across the project.

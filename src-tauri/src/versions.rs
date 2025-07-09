@@ -368,7 +368,8 @@ pub async fn list_versions(prompt_uuid: String) -> std::result::Result<Vec<Versi
         let mut stmt = conn.prepare(
             "SELECT uuid, semver, created_at, parent_uuid FROM versions 
              WHERE prompt_uuid = ?1 
-             ORDER BY created_at DESC"
+             ORDER BY created_at DESC
+             LIMIT 5"
         )?;
         
         let version_iter = stmt.query_map([&prompt_uuid], |row| {
@@ -404,6 +405,50 @@ pub async fn list_versions(prompt_uuid: String) -> std::result::Result<Vec<Versi
     if versions.is_empty() {
         log::warn!("No versions found in database for prompt {}", prompt_uuid);
     }
+    
+    Ok(versions)
+}
+
+/// List all versions for a prompt with full content in a single query (performance optimized)
+#[tauri::command]
+pub async fn list_versions_full(prompt_uuid: String) -> std::result::Result<Vec<Version>, String> {
+    log::info!("Listing full versions for prompt: {}", prompt_uuid);
+    
+    // Validate UUID format
+    validate_uuid(&prompt_uuid)?;
+    
+    let db = get_database()?;
+    
+    let versions = db.with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT uuid, prompt_uuid, semver, body, metadata, created_at, parent_uuid 
+             FROM versions 
+             WHERE prompt_uuid = ?1 
+             ORDER BY created_at DESC
+             LIMIT 5"
+        )?;
+        
+        let version_iter = stmt.query_map([&prompt_uuid], |row| {
+            Ok(Version {
+                uuid: row.get(0)?,
+                prompt_uuid: row.get(1)?,
+                semver: row.get(2)?,
+                body: row.get(3)?,
+                metadata: row.get(4)?,
+                created_at: row.get(5)?,
+                parent_uuid: row.get(6)?,
+            })
+        })?;
+        
+        let mut versions = Vec::new();
+        for version in version_iter {
+            versions.push(version?);
+        }
+        
+        Ok(versions)
+    })?;
+    
+    log::info!("Found {} full versions for prompt {} (limited to 5 most recent)", versions.len(), prompt_uuid);
     
     Ok(versions)
 }

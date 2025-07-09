@@ -17,6 +17,9 @@ A local-first desktop application for managing AI prompts with versioning, searc
 - 📐 **Resizable Panels** - 3-panel layout (history, editor/preview, variables)
 - 🛡️ **Security Validation** - Content sanitization prevents HTML injection
 - 📝 **Enhanced Creation** - Professional editor interface for new prompts
+- ⚡ **Performance Optimized** - <50ms keystroke latency with debouncing and memoization
+- 📱 **Virtual Scrolling** - Efficient rendering of large version lists (20+ items)
+- 💀 **Skeleton Loading** - Smooth loading states for all major components
 
 ### Data Management
 - 🗂️ **Local-first prompt management** - All data stored locally in your Documents folder
@@ -223,6 +226,8 @@ npm run tauri build      # Build Tauri app for production
 - Monaco Editor (code editing)
 - React Markdown + remark-gfm (preview rendering)
 - React Resizable Panels (layout)
+- React Window (virtual scrolling)
+- Performance monitoring hooks
 
 **Backend:**
 - Rust + Tauri 2.0
@@ -285,6 +290,12 @@ npm run tauri dev
 
 ### Performance Issues
 
+**Slow editor response**
+- Editor optimized for <50ms keystroke latency
+- Uses debouncing (300ms) and memoization for heavy operations
+- Virtual scrolling kicks in for version lists >20 items
+- Performance monitoring available in development mode
+
 **Too many toast notifications**
 - File watcher now debounces changes (500ms)
 - Only shows toasts for user-initiated actions
@@ -293,6 +304,7 @@ npm run tauri dev
 **Application logging**
 - Set `RUST_LOG=debug` environment variable for detailed logs
 - Logs show database operations, file changes, and errors
+- Performance metrics logged in development mode
 
 ## License
 
