@@ -4,6 +4,7 @@ use chrono::Utc;
 use rusqlite::params;
 use crate::db::get_database;
 use crate::error::{AppError, Result};
+use crate::security::{validate_prompt_content, validate_uuid};
 use regex::Regex;
 use lazy_static::lazy_static;
 use tauri::Manager;
@@ -163,9 +164,8 @@ modified: {}
 pub async fn get_latest_version(prompt_uuid: String) -> std::result::Result<Option<String>, String> {
     log::info!("Getting latest version for prompt: {}", prompt_uuid);
     
-    if prompt_uuid.trim().is_empty() {
-        return Err("Prompt UUID cannot be empty".to_string());
-    }
+    // Validate UUID format
+    validate_uuid(&prompt_uuid)?;
     
     let db = get_database()?;
     
@@ -204,12 +204,12 @@ pub async fn save_new_version(
     body: String,
     app_handle: tauri::AppHandle,
 ) -> std::result::Result<Version, String> {
-    log::info!("Saving new version for prompt: {}", prompt_uuid);
+    log::info!("Saving new version for prompt: {} (body: {} chars)", prompt_uuid, body.len());
     
-    // Validate input
-    if prompt_uuid.trim().is_empty() {
-        return Err("Prompt UUID cannot be empty".to_string());
-    }
+    // Validate input with security checks
+    validate_uuid(&prompt_uuid)?;
+    validate_prompt_content(&body)?;
+    
     if body.trim().is_empty() {
         return Err("Version body cannot be empty".to_string());
     }

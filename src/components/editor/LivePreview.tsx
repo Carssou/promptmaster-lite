@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { substituteVariables } from '../../services/variableParser';
+import { validatePromptContent } from '../../services/securityService';
 
 interface LivePreviewProps {
   content: string;
@@ -23,10 +24,13 @@ export function LivePreview({ content, variables = {}, className = '' }: LivePre
         // Substitute variables
         const substituted = substituteVariables(content, variables);
         
-        // Strip potential API keys for security
-        const sanitized = stripApiKeys(substituted);
+        // Validate security (just check for HTML/script content)
+        const validation = validatePromptContent(substituted);
+        if (!validation.isValid) {
+          console.warn('Content validation warnings:', validation.errors);
+        }
         
-        setProcessedContent(sanitized);
+        setProcessedContent(validation.sanitizedContent);
       } catch (error) {
         console.error('Error processing content:', error);
         setProcessedContent('Error processing content');
@@ -135,21 +139,3 @@ export function LivePreview({ content, variables = {}, className = '' }: LivePre
   );
 }
 
-/**
- * Strip potential API keys from content for security
- */
-function stripApiKeys(content: string): string {
-  // Remove OpenAI API keys
-  content = content.replace(/sk-[\w]{48}/g, '[API_KEY_REMOVED]');
-  
-  // Remove other common API key patterns
-  content = content.replace(/\b[A-Za-z0-9]{32,}\b/g, (match) => {
-    // Only replace if it looks like an API key (all caps/numbers, long)
-    if (match.length >= 32 && /^[A-Z0-9]+$/.test(match)) {
-      return '[API_KEY_REMOVED]';
-    }
-    return match;
-  });
-  
-  return content;
-}

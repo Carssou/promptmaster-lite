@@ -4,6 +4,7 @@ use chrono::Utc;
 use rusqlite::params;
 use crate::db::get_database;
 use crate::error::{AppError, Result};
+use crate::security::validate_prompt_input;
 use tauri::Manager;
 use regex::Regex;
 use lazy_static::lazy_static;
@@ -19,32 +20,7 @@ pub struct Prompt {
     pub updated_at: String,
 }
 
-fn validate_prompt_input(title: &str, content: &str, tags: &[String]) -> Result<()> {
-    if title.trim().is_empty() {
-        return Err(AppError::InvalidInput("Title cannot be empty".to_string()));
-    }
-    if title.len() > 255 {
-        return Err(AppError::InvalidInput("Title too long (max 255 characters)".to_string()));
-    }
-    if content.trim().is_empty() {
-        return Err(AppError::InvalidInput("Content cannot be empty".to_string()));
-    }
-    if content.len() > 100_000 {
-        return Err(AppError::InvalidInput("Content too long (max 100,000 characters)".to_string()));
-    }
-    if tags.len() > 20 {
-        return Err(AppError::InvalidInput("Too many tags (max 20)".to_string()));
-    }
-    for tag in tags {
-        if tag.trim().is_empty() {
-            return Err(AppError::InvalidInput("Tag cannot be empty".to_string()));
-        }
-        if tag.len() > 50 {
-            return Err(AppError::InvalidInput("Tag too long (max 50 characters)".to_string()));
-        }
-    }
-    Ok(())
-}
+// Input validation moved to security.rs module
 
 #[tauri::command]
 pub async fn save_prompt(
@@ -53,9 +29,9 @@ pub async fn save_prompt(
     tags: Vec<String>,
     app_handle: tauri::AppHandle,
 ) -> std::result::Result<Prompt, String> {
-    log::info!("Saving prompt: {}", title);
+    log::info!("Saving prompt: {} (content: {} chars)", title, content.len());
     
-    // Validate input
+    // Validate input with security checks
     validate_prompt_input(&title, &content, &tags)?;
     
     let prompt_uuid = Uuid::now_v7().to_string();

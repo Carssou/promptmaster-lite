@@ -39,12 +39,15 @@ npm run build
 
 #### Frontend Architecture
 - **EditorScreen**: Main editing interface at `src/pages/EditorScreen.tsx`
+- **NewPrompt**: Enhanced prompt creation at `src/pages/NewPrompt.tsx`
 - **PromptEditor**: Monaco Editor wrapper at `src/components/editor/PromptEditor.tsx`
 - **LivePreview**: Markdown renderer at `src/components/editor/LivePreview.tsx`
 - **PromptDiff**: Monaco Diff Viewer at `src/components/editor/PromptDiff.tsx`
 - **VersionHistory**: Version sidebar at `src/components/version/VersionHistory.tsx`
 - **VariablePanel**: Variable management at `src/components/variables/VariablePanel.tsx`
+- **KeyboardShortcutsModal**: Help modal at `src/components/help/KeyboardShortcutsModal.tsx`
 - **Variable Parser**: Core engine at `src/services/variableParser.ts`
+- **Security Service**: Content validation at `src/services/securityService.ts`
 
 #### Backend Components
 - **Database Manager**: Thread-safe connection pooling in `src-tauri/src/database.rs`
@@ -53,6 +56,8 @@ npm run build
 - **Version Management**: Auto-versioning system in `src-tauri/src/versions.rs`
 - **File Watcher**: Selective .md file monitoring in `src-tauri/src/watcher.rs`
 - **Error Handling**: Custom error types in `src-tauri/src/error.rs`
+- **Security Validation**: Content sanitization in `src-tauri/src/security.rs`
+- **Application Logging**: Secure logging system in `src-tauri/src/logging.rs`
 
 ## Database Schema
 
@@ -137,10 +142,10 @@ All commands include:
 - Cost tracking: token counts and USD costs  
 - Full-text search with FTS5
 
-## Production Status (2025-07-08 - v0.3.0)
+## Production Status (2025-07-09 - v0.4.0)
 
 ### ✅ COMPLETED & WORKING
-- **Monaco Editor**: Full markdown editing with syntax highlighting
+- **Monaco Editor**: Full markdown editing with syntax highlighting across all pages
 - **Version Management**: Auto-incrementing versions (1.0.0 → 1.0.1 → 1.0.2)
 - **Version History**: Real-time version sidebar with rollback functionality
 - **Rollback System**: Creates new versions with old content (non-destructive)
@@ -151,6 +156,10 @@ All commands include:
 - **File System Sync**: Automatic .md file generation with proper tag preservation
 - **Error Handling**: Comprehensive null checks and graceful fallbacks
 - **Performance**: Optimized SQL queries, debounced operations
+- **Keyboard Shortcuts**: Complete hotkey system with help modal (Cmd+?)
+- **Security Hardening**: Input validation, content sanitization, logging system
+- **Consistent UI**: Professional editor experience across all pages
+- **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ### 🐛 CRITICAL BUGS FIXED (v0.3.0)
 - **SQLite Query Error**: Fixed `reverse()` function issue in version ordering
@@ -164,8 +173,18 @@ All commands include:
 - **Blocked Confirmation Dialogs**: Replaced native `confirm()` with React modals
 - **Database Constraints**: Added unique constraints on `(prompt_uuid, semver)`
 
+### 🎯 NEW FEATURES ADDED (v0.4.0)
+- **Keyboard Shortcuts Help**: Comprehensive modal with all shortcuts (Cmd+?)
+- **Enhanced NewPrompt Page**: Replaced basic form with Monaco Editor
+- **Security Validation**: Content sanitization prevents HTML injection
+- **Improved Error Messages**: Detailed backend validation errors shown to users
+- **Application Logging**: Secure logging system with PII protection
+- **Cross-Platform Shortcuts**: Dynamic modifier keys (⌘ on Mac, Ctrl on Windows)
+- **Variable Guidance**: Clear instructions on variable usage
+- **Consistent Security**: All entry points use same validation system
+
 ### 🎯 READY FOR USE
-**Phase 1, 2 & 3**: Production-ready for complete prompt editing, versioning, history, and rollback
+**Phase 1, 2, 3, 4.1 & 5.1**: Production-ready for complete prompt editing, versioning, history, rollback, shortcuts, and security
 
 ### 🔧 IMPORTANT NOTES FOR DEVELOPERS
 - **Database Location**: `~/Documents/PromptMaster/promptmaster.db`

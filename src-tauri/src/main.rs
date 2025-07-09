@@ -6,11 +6,14 @@ mod db;
 mod prompts;
 mod versions;
 mod watcher;
+mod security;
+mod logging;
 
 use db::init_database;
 use prompts::{save_prompt, list_prompts};
 use versions::{get_latest_version, save_new_version, list_versions, get_version_by_uuid, rollback_to_version};
 use watcher::start_file_watcher;
+use logging::init_app_logging;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,6 +26,12 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|app| {
+            // Initialize application logging
+            init_app_logging(&app.handle()).map_err(|e| {
+                log::error!("Application logging initialization failed: {}", e);
+                format!("Application logging initialization failed: {}", e)
+            })?;
+            
             init_database(&app.handle()).map_err(|e| {
                 log::error!("Database initialization failed: {}", e);
                 format!("Database initialization failed: {}", e)

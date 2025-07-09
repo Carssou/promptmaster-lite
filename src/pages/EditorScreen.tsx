@@ -8,7 +8,9 @@ import { LivePreview } from '../components/editor/LivePreview';
 import { PromptDiff } from '../components/editor/PromptDiff';
 import { VersionHistory } from '../components/version/VersionHistory';
 import { VariablePanel } from '../components/variables/VariablePanel';
+import { KeyboardShortcutsModal } from '../components/help/KeyboardShortcutsModal';
 import { validateVariables } from '../services/variableParser';
+import { getModifierKey } from '../hooks/useHotkeys';
 import { invoke } from '@tauri-apps/api/core';
 
 interface Version {
@@ -57,6 +59,10 @@ export function EditorScreen() {
   const { promptId } = useParams<{ promptId: string }>();
   const navigate = useNavigate();
   
+  // Platform-specific modifier key
+  const modifierKey = getModifierKey();
+  const modifierSymbol = modifierKey === 'cmd' ? '⌘' : 'Ctrl';
+  
   // State
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [editorContent, setEditorContent] = useState('');
@@ -69,6 +75,7 @@ export function EditorScreen() {
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editorMarkers, setEditorMarkers] = useState<any[]>([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   
   // Future feature flag for version bump confirmation
   const ENABLE_VERSION_BUMP_CONFIRMATION = false;
@@ -202,8 +209,9 @@ export function EditorScreen() {
       
     } catch (error) {
       console.error('Error saving prompt:', error);
-      toast.error('Failed to save prompt. Please try again.', {
-        duration: 4000,
+      const errorMessage = typeof error === 'string' ? error : 'Failed to save prompt. Please try again.';
+      toast.error(errorMessage, {
+        duration: 6000,
         icon: '❌',
       });
     } finally {
@@ -266,8 +274,9 @@ export function EditorScreen() {
       console.log(`Rolled back to version ${version.semver}, created new version ${newVersion.semver}`);
     } catch (error) {
       console.error('Error rolling back version:', error);
-      toast.error('Failed to rollback version. Please try again.', {
-        duration: 4000,
+      const errorMessage = typeof error === 'string' ? error : 'Failed to rollback version. Please try again.';
+      toast.error(errorMessage, {
+        duration: 6000,
         icon: '❌',
       });
     }
@@ -357,11 +366,26 @@ export function EditorScreen() {
             e.preventDefault();
             // Future: Run prompt
             break;
+          case '/':
+          case '?':
+            e.preventDefault();
+            setShowHelpModal(true);
+            break;
+          case 'b':
+            e.preventDefault();
+            setShowVersionHistory(!showVersionHistory);
+            break;
+          case 'k':
+            e.preventDefault();
+            setViewMode(viewMode === 'preview' ? 'edit' : 'preview');
+            break;
         }
       }
       
       if (e.key === 'Escape') {
-        if (viewMode === 'diff') {
+        if (showHelpModal) {
+          setShowHelpModal(false);
+        } else if (viewMode === 'diff') {
           setViewMode('edit');
           setDiffVersions(null);
         }
@@ -380,7 +404,7 @@ export function EditorScreen() {
       window.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('editor-save', handleEditorSave);
     };
-  }, [handleSave, handleAutoDiff, viewMode]);
+  }, [handleSave, handleAutoDiff, viewMode, showHelpModal]);
 
   if (loading) {
     return (
@@ -556,9 +580,11 @@ export function EditorScreen() {
       <div className="bg-white border-t border-gray-200 px-4 py-2">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center space-x-4">
-            <span>⌘+S: Save</span>
-            <span>⌘+D: Toggle diff</span>
-            <span>⌘+↵: Run prompt</span>
+            <span>{modifierSymbol}+S: Save</span>
+            <span>{modifierSymbol}+D: Diff</span>
+            <span>{modifierSymbol}+B: History</span>
+            <span>{modifierSymbol}+K: Preview</span>
+            <span>{modifierSymbol}+?: Help</span>
           </div>
           <div className="flex items-center space-x-4">
             <span>{editorContent.length} characters</span>
@@ -571,6 +597,12 @@ export function EditorScreen() {
           </div>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+      />
     </div>
   );
 }

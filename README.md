@@ -2,19 +2,21 @@
 
 A local-first desktop application for managing AI prompts with versioning, search, and performance tracking.
 
-![PromptMaster Lite](https://img.shields.io/badge/version-0.3.0-blue.svg)
+![PromptMaster Lite](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
 ## Features
 
 ### Core Editing Experience
-- 🖥️ **Monaco Editor** - Professional code editor with syntax highlighting for markdown and YAML
+- 🖥️ **Monaco Editor** - Professional code editor with syntax highlighting across all pages
 - 👁️ **Live Preview** - Real-time markdown rendering with variable substitution
 - 🔧 **Variable Management** - Automatic `{{variable}}` detection with sidebar panel
 - 📊 **Version Diff Viewer** - Side-by-side comparison with Monaco Diff Editor
-- ⌨️ **Keyboard Shortcuts** - Cmd+S (save), Cmd+D (diff), Esc (exit modes)
+- ⌨️ **Keyboard Shortcuts** - Complete hotkey system with help modal (Cmd+?)
 - 📐 **Resizable Panels** - 3-panel layout (history, editor/preview, variables)
+- 🛡️ **Security Validation** - Content sanitization prevents HTML injection
+- 📝 **Enhanced Creation** - Professional editor interface for new prompts
 
 ### Data Management
 - 🗂️ **Local-first prompt management** - All data stored locally in your Documents folder
@@ -22,6 +24,8 @@ A local-first desktop application for managing AI prompts with versioning, searc
 - 🔄 **File watcher** - Automatic sync when you edit files externally
 - 🏷️ **Tag-based organization**
 - ⚡ **Semantic versioning** for prompts (1.0.0, 1.1.0, 2.0.0)
+- 🔒 **Security logging** - Application logs with PII protection
+- 📋 **Version history** - Complete rollback system with diff viewing
 
 ### Planned Features
 - 🔍 **Full-text search** with SQLite FTS5 (database schema ready)
@@ -129,6 +133,7 @@ The content can span multiple lines and paragraphs.
 
 - **Database**: `~/Documents/PromptMaster/promptmaster.db`
 - **Markdown files**: `~/Documents/PromptMaster/`
+- **Application logs**: `~/Documents/PromptMaster/promptmaster.log`
 
 ### Database Schema
 
@@ -171,7 +176,10 @@ The content can span multiple lines and paragraphs.
 | `Cmd+N` / `Ctrl+N` | Create new prompt | Global |
 | `Cmd+S` / `Ctrl+S` | Save prompt with auto-version bump | Editor |
 | `Cmd+D` / `Ctrl+D` | Toggle diff viewer | Editor |
-| `Esc` | Exit diff mode | Diff viewer |
+| `Cmd+B` / `Ctrl+B` | Toggle version history sidebar | Editor |
+| `Cmd+K` / `Ctrl+K` | Toggle preview mode | Editor |
+| `Cmd+?` / `Ctrl+?` | Show keyboard shortcuts help | Editor |
+| `Esc` | Exit diff mode or close modals | Global |
 | `Cmd+Enter` / `Ctrl+Enter` | Run prompt (planned) | Editor |
 | `F12` / `Cmd+Option+I` | Open developer tools | Development only |
 
