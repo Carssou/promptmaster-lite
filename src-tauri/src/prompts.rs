@@ -4,6 +4,7 @@ use chrono::Utc;
 use rusqlite::params;
 use crate::db::get_database;
 use crate::error::{AppError, Result};
+use crate::metadata::PromptMetadata;
 use crate::security::validate_prompt_input;
 use tauri::Manager;
 use regex::Regex;
@@ -95,6 +96,19 @@ fn save_prompt_file(
     tags: &[String],
     uuid: &str,
 ) -> Result<()> {
+    save_prompt_file_with_metadata(app_handle, title, content, tags, uuid, None, "1.0.0")
+}
+
+/// Save prompt file with optional metadata integration
+pub fn save_prompt_file_with_metadata(
+    app_handle: &tauri::AppHandle,
+    title: &str,
+    content: &str,
+    tags: &[String],
+    uuid: &str,
+    metadata: Option<&PromptMetadata>,
+    version: &str,
+) -> Result<()> {
     let documents_dir = app_handle
         .path()
         .document_dir()
@@ -117,28 +131,65 @@ fn save_prompt_file(
         .collect::<String>()
         .replace(' ', "-");
     
-    let filename = format!("{}--{}--v1.0.0.md", date, slug);
+    let filename = format!("{}--{}--v{}.md", date, slug, version);
     
-    let frontmatter = format!(
-        r#"---
-uuid: "{}"
-version: "1.0.0"
+    // Build frontmatter with metadata integration
+    let mut frontmatter_content = format!(
+        r#"uuid: "{}"
+version: "{}"
 title: "{}"
 tags: {:?}
 created: {}
-modified: {}
----
-
-{}"#,
+modified: {}"#,
         uuid,
+        version,
         title,
         tags,
-        Utc::now().format("%Y-%m-%d"),
-        Utc::now().format("%Y-%m-%d"),
+        date,
+        Utc::now().format("%Y-%m-%d")
+    );
+    
+    // Add metadata fields if present
+    if let Some(meta) = metadata {
+        if let Some(ref category_path) = meta.category_path {
+            if category_path != "Uncategorized" {
+                frontmatter_content.push_str(&format!("\ncategory: \"{}\"", category_path));
+            }
+        }
+        
+        if let Some(ref models) = meta.models {
+            if !models.is_empty() {
+                frontmatter_content.push_str(&format!("\nmodels: {:?}", models));
+            }
+        }
+        
+        if let Some(ref notes) = meta.notes {
+            if !notes.trim().is_empty() {
+                // Escape notes for YAML
+                let escaped_notes = notes.replace("\"", "\\\"").replace("\n", "\\n");
+                frontmatter_content.push_str(&format!("\nnotes: \"{}\"", escaped_notes));
+            }
+        }
+        
+        // Add custom fields if present
+        if let Some(ref custom_fields) = meta.custom_fields {
+            if let Ok(custom_yaml) = serde_yaml::to_string(custom_fields) {
+                // Remove the leading "---\n" from the YAML output
+                let custom_yaml = custom_yaml.trim_start_matches("---\n");
+                if !custom_yaml.trim().is_empty() {
+                    frontmatter_content.push_str(&format!("\n{}", custom_yaml.trim()));
+                }
+            }
+        }
+    }
+    
+    let full_content = format!(
+        "---\n{}\n---\n\n{}",
+        frontmatter_content,
         content
     );
     
-    std::fs::write(prompts_dir.join(filename), frontmatter)?;
+    std::fs::write(prompts_dir.join(filename), full_content)?;
     
     Ok(())
 }

@@ -23,6 +23,9 @@ impl DatabaseManager {
         // Initialize database schema
         Self::create_tables(&conn)?;
         
+        // Initialize default data
+        Self::initialize_default_data(&conn)?;
+        
         Ok(DatabaseManager {
             connection: Arc::new(Mutex::new(conn)),
         })
@@ -35,10 +38,13 @@ impl DatabaseManager {
                 uuid TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 tags TEXT,
+                category_path TEXT DEFAULT 'Uncategorized',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 prod_version_uuid TEXT
             );
+            
+            CREATE INDEX IF NOT EXISTS idx_category ON prompts(category_path);
             
             CREATE TABLE IF NOT EXISTS versions (
                 uuid TEXT PRIMARY KEY,
@@ -83,9 +89,32 @@ impl DatabaseManager {
                 title, body, tags,
                 content_rowid=rowid
             );
+            
+            CREATE TABLE IF NOT EXISTS model_providers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                active BOOLEAN DEFAULT TRUE,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_model_providers_active 
+            ON model_providers(active);
+            
+            CREATE INDEX IF NOT EXISTS idx_model_providers_provider 
+            ON model_providers(provider);
             "#,
         )?;
         
+        Ok(())
+    }
+    
+    fn initialize_default_data(_conn: &Connection) -> Result<()> {
+        // No default model providers - let users add their own current models
+        // This prevents the app from shipping with outdated model lists
+        log::info!("Database initialized - model providers table ready for user input");
         Ok(())
     }
     

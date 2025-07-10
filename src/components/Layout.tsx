@@ -21,30 +21,33 @@ export function Layout() {
   }, [navigate]);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <nav className="w-full md:w-64 bg-white border-b md:border-r border-gray-200 p-4 md:p-0">
-        <div className="p-4 hidden md:block">
-          <h1 className="text-xl font-bold">PromptMaster</h1>
+      <nav className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <h1 className="text-lg font-semibold text-gray-900">PromptMaster</h1>
         </div>
-        <ul className="flex md:flex-col justify-around md:justify-start space-x-1 md:space-x-0 md:space-y-1 p-2">
-          <NavItem to="/" icon={<Home size={18} />} label="Dashboard" />
-          <NavItem to="/new" icon={<Plus size={18} />} label="New Prompt" />
-          <NavItem
-            to="/analytics"
-            icon={<BarChart3 size={18} />}
-            label="Analytics"
-          />
-          <NavItem
-            to="/settings"
-            icon={<Settings size={18} />}
-            label="Settings"
-          />
-        </ul>
+
+        <div className="flex-1 p-4">
+          <ul className="space-y-2">
+            <NavItem to="/" icon={<Home size={18} />} label="Dashboard" />
+            <NavItem to="/new" icon={<Plus size={18} />} label="New Prompt" />
+            <NavItem
+              to="/analytics"
+              icon={<BarChart3 size={18} />}
+              label="Analytics"
+            />
+            <NavItem
+              to="/settings"
+              icon={<Settings size={18} />}
+              label="Settings"
+            />
+          </ul>
+        </div>
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-4 md:p-8">
+      <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
     </div>
@@ -64,10 +67,10 @@ function NavItem({
     <li>
       <Link
         to={to}
-        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100"
+        className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
       >
         {icon}
-        <span>{label}</span>
+        <span className="font-medium">{label}</span>
       </Link>
     </li>
   );

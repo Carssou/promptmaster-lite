@@ -3,6 +3,8 @@
  * Simple, lightweight system for future plugin support
  */
 
+import { MetadataSchema } from './metadataSchema';
+
 export interface EditorMarker {
   startLineNumber: number;
   endLineNumber: number;
@@ -17,6 +19,10 @@ export interface HookCallbacks {
   onContentChange?: (content: string, promptUuid: string) => void;
   onVersionCreated?: (version: string, promptUuid: string) => void;
   getEditorMarkers?: (content: string) => EditorMarker[];
+  // New metadata schema hooks
+  onMetadataSchemaRegister?: (schema: MetadataSchema) => void;
+  onMetadataSchemaUnregister?: (schemaName: string) => void;
+  onMetadataValidate?: (metadata: Record<string, any>) => Record<string, string>;
 }
 
 class SimpleHooksManager {
@@ -92,6 +98,50 @@ class SimpleHooksManager {
     });
     
     return markers;
+  }
+
+  /**
+   * Execute metadata schema registration hooks
+   */
+  executeMetadataSchemaRegister(schema: MetadataSchema): void {
+    this.callbacks.forEach(cb => {
+      try {
+        cb.onMetadataSchemaRegister?.(schema);
+      } catch (error) {
+        console.warn('Hook onMetadataSchemaRegister error:', error);
+      }
+    });
+  }
+
+  /**
+   * Execute metadata schema unregistration hooks
+   */
+  executeMetadataSchemaUnregister(schemaName: string): void {
+    this.callbacks.forEach(cb => {
+      try {
+        cb.onMetadataSchemaUnregister?.(schemaName);
+      } catch (error) {
+        console.warn('Hook onMetadataSchemaUnregister error:', error);
+      }
+    });
+  }
+
+  /**
+   * Execute metadata validation hooks and collect additional errors
+   */
+  executeMetadataValidate(metadata: Record<string, any>): Record<string, string> {
+    const errors: Record<string, string> = {};
+    
+    this.callbacks.forEach(cb => {
+      try {
+        const callbackErrors = cb.onMetadataValidate?.(metadata) || {};
+        Object.assign(errors, callbackErrors);
+      } catch (error) {
+        console.warn('Hook onMetadataValidate error:', error);
+      }
+    });
+    
+    return errors;
   }
 }
 

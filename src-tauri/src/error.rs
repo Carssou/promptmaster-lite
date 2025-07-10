@@ -8,6 +8,7 @@ pub enum AppError {
     Tauri(tauri::Error),
     Path(String),
     InvalidInput(String),
+    Validation(String),
     FileWatcher(notify::Error),
     Regex(regex::Error),
 }
@@ -21,6 +22,7 @@ impl fmt::Display for AppError {
             AppError::Tauri(e) => write!(f, "Tauri error: {}", e),
             AppError::Path(e) => write!(f, "Path error: {}", e),
             AppError::InvalidInput(e) => write!(f, "Invalid input: {}", e),
+            AppError::Validation(e) => write!(f, "Validation error: {}", e),
             AppError::FileWatcher(e) => write!(f, "File watcher error: {}", e),
             AppError::Regex(e) => write!(f, "Regex error: {}", e),
         }
