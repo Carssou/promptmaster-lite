@@ -11,8 +11,8 @@ const validateCache = new Map<string, Array<{
 }>>;
 
 // Pre-compiled regex patterns for better performance
-const VARIABLE_REGEX = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
-const SUBSTITUTION_REGEX = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+const VARIABLE_REGEX = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
+const SUBSTITUTION_REGEX = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
 const OPEN_BRACES_REGEX = /\{\{/g;
 const CLOSE_BRACES_REGEX = /\}\}/g;
 const NESTED_BRACES_REGEX = /\{\{[^}]*\{\{/;
@@ -64,10 +64,15 @@ export function parseVariables(content: string): string[] {
   const variableSet = new Set<string>(); // Use Set for O(1) duplicate checking
   let match;
 
+  // First, check for and exclude nested braces patterns
+  let processedContent = content;
+  const nestedPattern = /\{\{[^}]*\{\{[^}]*\}\}[^}]*\}\}/g;
+  processedContent = processedContent.replace(nestedPattern, '');
+
   // Reset regex state
   VARIABLE_REGEX.lastIndex = 0;
 
-  while ((match = VARIABLE_REGEX.exec(content)) !== null) {
+  while ((match = VARIABLE_REGEX.exec(processedContent)) !== null) {
     const varName = match[1];
     if (!variableSet.has(varName)) {
       variableSet.add(varName);
@@ -185,22 +190,70 @@ export function getVariablesWithSources(
   userDefinedValues: VariableSubstitution = {}
 ): Variable[] {
   const detectedVars = parseVariables(content);
+  const allVariables: Variable[] = [];
   
-  return detectedVars.map(name => {
+  // Add detected variables
+  detectedVars.forEach(name => {
     if (userDefinedValues[name] !== undefined) {
-      return {
+      allVariables.push({
         name,
         value: userDefinedValues[name],
         source: 'manual' as const
-      };
+      });
+    } else {
+      allVariables.push({
+        name,
+        value: `«${name}»`,
+        source: 'fallback' as const
+      });
     }
-    
-    return {
-      name,
-      value: `«${name}»`,
-      source: 'fallback' as const
-    };
   });
+  
+  // Add manual variables that aren't in content
+  Object.keys(userDefinedValues).forEach(name => {
+    if (!detectedVars.includes(name)) {
+      allVariables.push({
+        name,
+        value: userDefinedValues[name],
+        source: 'manual' as const
+      });
+    }
+  });
+  
+  return allVariables;
+}
+
+/**
+ * Validate variable usage and return simplified validation result
+ */
+export function validateVariableUsage(content: string): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  // Check for unclosed braces
+  const openBraces = (content.match(/\{\{/g) || []).length;
+  const closeBraces = (content.match(/\}\}/g) || []).length;
+  if (openBraces !== closeBraces) {
+    errors.push('Unclosed variable brace detected');
+  }
+  
+  // Check for nested braces
+  if (/\{\{[^}]*\{\{/.test(content)) {
+    errors.push('Nested braces detected - variables cannot be nested');
+  }
+  
+  // Check for invalid variable names
+  const invalidMatches = content.match(/\{\{\s*([^a-zA-Z_][^}]*|[a-zA-Z_][^}]*[^a-zA-Z0-9_}][^}]*)\s*\}\}/g);
+  if (invalidMatches) {
+    invalidMatches.forEach(match => {
+      const varName = match.replace(/\{\{\s*|\s*\}\}/g, '');
+      errors.push(`Invalid variable name: ${varName} (must contain only letters, numbers, and underscores)`);
+    });
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
 }
 
 /**

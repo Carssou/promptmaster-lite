@@ -286,3 +286,196 @@ pub fn update_prompt_from_file(
 
     Ok(())
 }
+
+pub fn recreate_prompt_file(
+    app_handle: &tauri::AppHandle,
+    deleted_file_path: &Path,
+) -> Result<bool> {
+    // Extract UUID from filename using regex
+    let filename = deleted_file_path
+        .file_name()
+        .ok_or_else(|| AppError::InvalidInput("Invalid file path".to_string()))?
+        .to_string_lossy();
+    
+    // Parse the filename to extract UUID from frontmatter
+    // First check if the file exists in the database by trying to match the filename pattern
+    lazy_static! {
+        static ref FILENAME_REGEX: Regex = Regex::new(r"(\d{4}-\d{2}-\d{2})--(.+)--v(\d+\.\d+\.\d+)\.md").unwrap();
+    }
+    
+    let captures = FILENAME_REGEX.captures(&filename);
+    if captures.is_none() {
+        log::warn!("Deleted file doesn't match expected pattern: {}", filename);
+        return Ok(false);
+    }
+    
+    let captures = captures.unwrap();
+    let _date = captures.get(1).map(|m| m.as_str());
+    let title_slug = captures.get(2).map(|m| m.as_str()).unwrap_or("");
+    let version = captures.get(3).map(|m| m.as_str()).unwrap_or("1.0.0");
+    
+    // Find the prompt by searching for matching title slug in database
+    let db = get_database()?;
+    let prompt_data = db.with_connection(|conn| {
+        // First, try to find the prompt by matching the title slug
+        let mut stmt = conn.prepare(
+            "SELECT p.uuid, p.title, p.tags, v.body, v.created_at 
+             FROM prompts p 
+             JOIN versions v ON p.uuid = v.prompt_uuid 
+             WHERE v.semver = ?1 
+             ORDER BY v.created_at DESC 
+             LIMIT 1"
+        )?;
+        
+        let result = stmt.query_row([version], |row| {
+            let uuid: String = row.get(0)?;
+            let title: String = row.get(1)?;
+            let tags_str: String = row.get(2)?;
+            let body: String = row.get(3)?;
+            let created_at: String = row.get(4)?;
+            
+            // Parse tags
+            let tags: Vec<String> = serde_json::from_str(&tags_str)
+                .unwrap_or_else(|_| Vec::new());
+            
+            // Check if this prompt matches the deleted file's title slug
+            let computed_slug = title
+                .chars()
+                .filter_map(|c| {
+                    if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                        Some(c.to_ascii_lowercase())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<String>()
+                .replace(' ', "-");
+            
+            if computed_slug == title_slug {
+                Ok(Some((uuid, title, tags, body, created_at)))
+            } else {
+                Ok(None)
+            }
+        });
+        
+        match result {
+            Ok(Some(data)) => Ok(data),
+            Ok(None) => {
+                // If no match found, try to find by searching all prompts
+                let mut stmt = conn.prepare(
+                    "SELECT p.uuid, p.title, p.tags, v.body, v.created_at 
+                     FROM prompts p 
+                     JOIN versions v ON p.uuid = v.prompt_uuid 
+                     WHERE v.semver = ?1"
+                )?;
+                
+                let rows = stmt.query_map([version], |row| {
+                    let uuid: String = row.get(0)?;
+                    let title: String = row.get(1)?;
+                    let tags_str: String = row.get(2)?;
+                    let body: String = row.get(3)?;
+                    let created_at: String = row.get(4)?;
+                    
+                    let tags: Vec<String> = serde_json::from_str(&tags_str)
+                        .unwrap_or_else(|_| Vec::new());
+                    
+                    Ok((uuid, title, tags, body, created_at))
+                })?;
+                
+                // Find the first match by title slug
+                for row in rows {
+                    let (uuid, title, tags, body, created_at) = row?;
+                    let computed_slug = title
+                        .chars()
+                        .filter_map(|c| {
+                            if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                                Some(c.to_ascii_lowercase())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<String>()
+                        .replace(' ', "-");
+                    
+                    if computed_slug == title_slug {
+                        return Ok((uuid, title, tags, body, created_at));
+                    }
+                }
+                
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+            Err(e) => Err(e),
+        }
+    });
+    
+    match prompt_data {
+        Ok(data) => {
+            let (uuid, title, tags, body, created_at) = data;
+            
+            // Recreate the file
+            let documents_dir = app_handle
+                .path()
+                .document_dir()
+                .map_err(|e| AppError::Path(e.to_string()))?;
+            
+            let prompts_dir = documents_dir.join("PromptMaster");
+            std::fs::create_dir_all(&prompts_dir)?;
+            
+            // Parse the created_at date for filename
+            let date = if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&created_at) {
+                datetime.format("%Y-%m-%d").to_string()
+            } else {
+                Utc::now().format("%Y-%m-%d").to_string()
+            };
+            
+            let slug = title
+                .chars()
+                .filter_map(|c| {
+                    if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
+                        Some(c.to_ascii_lowercase())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<String>()
+                .replace(' ', "-");
+            
+            let filename = format!("{}--{}--v{}.md", date, slug, version);
+            let file_path = prompts_dir.join(&filename);
+            
+            // Create the frontmatter content
+            let frontmatter = format!(
+                r#"---
+uuid: "{}"
+version: "{}"
+title: "{}"
+tags: {:?}
+created: {}
+modified: {}
+---
+
+{}"#,
+                uuid,
+                version,
+                title,
+                tags,
+                date,
+                Utc::now().format("%Y-%m-%d"),
+                body
+            );
+            
+            std::fs::write(&file_path, frontmatter)?;
+            
+            log::info!("Successfully recreated file: {} -> {}", filename, file_path.display());
+            Ok(true)
+        }
+        Err(AppError::Database(rusqlite::Error::QueryReturnedNoRows)) => {
+            log::warn!("No database entry found for deleted file: {}", filename);
+            Ok(false)
+        }
+        Err(e) => {
+            log::error!("Error while recreating file: {}", e);
+            Err(e)
+        }
+    }
+}

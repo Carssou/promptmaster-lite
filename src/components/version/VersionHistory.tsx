@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { Clock, GitBranch, RotateCcw } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { usePerformanceMonitor, PerformanceProfiler } from '../../hooks/usePerformanceMonitor';
@@ -141,6 +141,24 @@ function VersionHistoryComponent({
     }
   };
 
+  const handleVersionKeyDown = (version: Version, event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (event.shiftKey && selectedVersions.length === 1) {
+        const secondVersion = version;
+        const firstVersion = selectedVersions[0];
+        setSelectedVersions([]);
+        onVersionDiff(firstVersion, secondVersion);
+      } else {
+        setSelectedVersions([version]);
+        onVersionSelect(version);
+      }
+    } else if (event.key === 'r' && !version.isLatest) {
+      event.preventDefault();
+      setRollbackConfirmation({ version, show: true });
+    }
+  };
+
   const handleRollback = (version: Version, event: React.MouseEvent) => {
     event.stopPropagation();
     
@@ -202,17 +220,27 @@ function VersionHistoryComponent({
     <PerformanceProfiler id="VersionHistory">
       <div className={`bg-white border-r border-gray-200 ${className}`}>
         <div className="p-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-2">Version History</h3>
+          <h3 id="version-history-title" className="font-semibold text-gray-900 mb-2">Version History</h3>
           {selectedVersions.length === 1 && (
             <p className="text-xs text-gray-500">
               Shift+click another version to compare
             </p>
           )}
+          <p className="text-xs text-gray-400 mt-1">
+            Use Enter/Space to select, R to rollback, Shift+Enter to compare
+          </p>
         </div>
 
       {/* Version list (max 5 versions) */}
       <div className="flex-1">
-        <div className="overflow-y-auto" style={{ height }}>
+        <div 
+          className="overflow-y-auto" 
+          style={{ height }}
+          role="listbox"
+          aria-labelledby="version-history-title"
+          aria-multiselectable="false"
+          data-testid="version-history-sidebar"
+        >
           {versions.map((version) => {
             const isSelected = selectedVersions.some(v => v.uuid === version.uuid);
             const isCurrent = version.semver === currentVersion;
@@ -221,7 +249,13 @@ function VersionHistoryComponent({
               <div
                 key={version.uuid}
                 onClick={(e) => handleVersionClick(version, e)}
-                className={`p-3 border-b border-gray-100 cursor-pointer transition-colors ${
+                onKeyDown={(e) => handleVersionKeyDown(version, e)}
+                tabIndex={0}
+                role="option"
+                aria-selected={isSelected}
+                aria-label={`Version ${version.semver}${isCurrent ? ' (current)' : ''}${version.isLatest ? ' (latest)' : ''}, created ${new Date(version.created_at).toLocaleDateString()}`}
+                data-testid={`version-item-${version.semver}`}
+                className={`p-3 border-b border-gray-100 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${
                   isSelected 
                     ? 'bg-blue-50 border-blue-200' 
                     : 'hover:bg-gray-50'
@@ -246,8 +280,10 @@ function VersionHistoryComponent({
                         console.log('Raw button click event for version:', version.semver);
                         handleRollback(version, e);
                       }}
-                      className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded"
+                      className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       title={`Rollback to ${version.semver}`}
+                      aria-label={`Rollback to version ${version.semver}`}
+                      data-testid={`rollback-button-${version.semver}`}
                       style={{ zIndex: 10, position: 'relative' }}
                     >
                       <RotateCcw size={14} />
@@ -281,7 +317,7 @@ function VersionHistoryComponent({
 
       {/* Rollback Confirmation Dialog */}
       {(rollbackConfirmation?.show || false) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" data-testid="rollback-confirmation">
           <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Confirm Rollback
@@ -297,12 +333,14 @@ function VersionHistoryComponent({
               <button
                 onClick={cancelRollback}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                data-testid="cancel-rollback"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmRollback}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                data-testid="confirm-rollback"
               >
                 Rollback
               </button>

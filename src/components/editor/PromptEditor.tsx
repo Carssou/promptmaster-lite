@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor';
 import { useDebounce } from '../../hooks/useDebounce';
 import { usePerformanceMonitor, PerformanceProfiler } from '../../hooks/usePerformanceMonitor';
 import { EditorSkeleton } from '../ui/Skeleton';
+import { hooks } from '../../services/hooks';
 
 interface Marker {
   message: string;
@@ -20,6 +21,7 @@ interface PromptEditorProps {
   readOnly?: boolean;
   markers?: Marker[];
   debounceMs?: number;
+  promptUuid?: string; // For hooks integration
 }
 
 function PromptEditorComponent({ 
@@ -27,7 +29,8 @@ function PromptEditorComponent({
   onChange, 
   readOnly = false, 
   markers = [],
-  debounceMs = 300
+  debounceMs = 300,
+  promptUuid
 }: PromptEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -38,7 +41,13 @@ function PromptEditorComponent({
   const { trackKeystroke } = usePerformanceMonitor('PromptEditor');
   
   // Debounce the onChange callback to reduce re-renders
-  const debouncedOnChange = useDebounce(onChange, debounceMs);
+  const debouncedOnChange = useDebounce((newValue: string) => {
+    onChange(newValue);
+    // Execute content change hooks
+    if (promptUuid) {
+      hooks.executeContentChange(newValue, promptUuid);
+    }
+  }, debounceMs);
 
   // Memoize completion provider to avoid recreation on every mount
   const completionProvider = useMemo(() => ({
@@ -107,7 +116,11 @@ function PromptEditorComponent({
   const monacoMarkers = useMemo(() => {
     if (!monacoRef.current) return [];
     
-    return markers.map(marker => ({
+    // Combine provided markers with hook markers
+    const hookMarkers = hooks.getEditorMarkers(value);
+    const allMarkers = [...markers, ...hookMarkers];
+    
+    return allMarkers.map(marker => ({
       ...marker,
       severity: marker.severity === 'error' 
         ? monacoRef.current!.MarkerSeverity.Error 
@@ -115,7 +128,7 @@ function PromptEditorComponent({
         ? monacoRef.current!.MarkerSeverity.Warning
         : monacoRef.current!.MarkerSeverity.Info
     }));
-  }, [markers]);
+  }, [markers, value]);
 
   // Update markers when they change
   useEffect(() => {
@@ -136,7 +149,7 @@ function PromptEditorComponent({
 
   return (
     <PerformanceProfiler id="PromptEditor">
-      <div className="h-full w-full border border-gray-300 rounded-lg overflow-hidden">
+      <div className="h-full w-full border border-gray-300 rounded-lg overflow-hidden" data-testid="prompt-editor">
         <div className="h-full">
           <Editor
             height="600px"

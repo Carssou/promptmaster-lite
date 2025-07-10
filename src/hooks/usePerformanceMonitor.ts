@@ -176,8 +176,8 @@ export function PerformanceProfiler({
     phase: 'mount' | 'update' | 'nested-update',
     actualDuration: number,
     baseDuration: number,
-    startTime: number,
-    commitTime: number
+    _startTime: number,
+    _commitTime: number
   ) => {
     if (process.env.NODE_ENV === 'development' && actualDuration > 16) {
       console.warn(`[Performance] ${id} - ${phase} render: ${actualDuration.toFixed(2)}ms (base: ${baseDuration.toFixed(2)}ms)`);

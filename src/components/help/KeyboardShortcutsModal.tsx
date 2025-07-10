@@ -104,17 +104,27 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcuts-modal-title"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <Command className="text-blue-600" size={24} />
-            <h2 className="text-xl font-semibold text-gray-900">Keyboard Shortcuts</h2>
+            <h2 id="shortcuts-modal-title" className="text-xl font-semibold text-gray-900">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+            className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close keyboard shortcuts dialog"
           >
             <X size={20} />
           </button>

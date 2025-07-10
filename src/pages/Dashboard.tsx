@@ -86,60 +86,85 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-8">
+    <main className="p-8" role="main" aria-labelledby="dashboard-title">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">My Prompts</h2>
+        <h1 id="dashboard-title" className="text-2xl font-bold">My Prompts</h1>
         <Link
           to="/new"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          aria-label="Create a new prompt"
         >
-          <Plus size={18} />
+          <Plus size={18} aria-hidden="true" />
           New Prompt
         </Link>
       </div>
 
       {prompts.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500" role="status" aria-live="polite">
           <p>No prompts yet. Create your first one!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          role="grid"
+          aria-label={`${prompts.length} prompts available`}
+        >
           {prompts.map((prompt) => (
             <PromptCard key={prompt.uuid} prompt={prompt} />
           ))}
         </div>
       )}
-    </div>
+    </main>
   );
 }
 
 function PromptCard({ prompt }: { prompt: Prompt }) {
   const updatedDate = new Date(prompt.updated_at).toLocaleDateString();
+  const formattedDate = new Date(prompt.updated_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-      <Link to={`/editor/${prompt.uuid}`} className="block">
-        <h3 className="font-semibold text-lg mb-2 text-blue-600 hover:text-blue-800">{prompt.title}</h3>
+    <article 
+      className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+      role="gridcell"
+      aria-label={`Prompt: ${prompt.title}, updated ${formattedDate}${prompt.tags.length > 0 ? `, tags: ${prompt.tags.join(', ')}` : ''}`}
+    >
+      <Link 
+        to={`/editor/${prompt.uuid}`} 
+        className="block focus:outline-none"
+        aria-describedby={`prompt-${prompt.uuid}-details`}
+      >
+        <h2 className="font-semibold text-lg mb-2 text-blue-600 hover:text-blue-800 focus:text-blue-800">
+          {prompt.title}
+        </h2>
       </Link>
 
-      <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-        <Clock size={14} />
-        <span>Updated {updatedDate}</span>
+      <div id={`prompt-${prompt.uuid}-details`} className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+        <Clock size={14} aria-hidden="true" />
+        <span>
+          <span className="sr-only">Last updated: </span>
+          Updated {updatedDate}
+        </span>
       </div>
 
       {prompt.tags.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Tag size={14} className="text-gray-400" />
+        <div className="flex items-center gap-2 flex-wrap" role="list" aria-label="Tags">
+          <Tag size={14} className="text-gray-400" aria-hidden="true" />
           {prompt.tags.map((tag) => (
             <span
               key={tag}
               className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+              role="listitem"
+              aria-label={`Tag: ${tag}`}
             >
               {tag}
             </span>
           ))}
         </div>
       )}
-    </div>
+    </article>
   );
 }
