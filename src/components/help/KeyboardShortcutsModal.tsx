@@ -1,4 +1,4 @@
-import { X, Command, Zap, Eye, History, Save, GitCompare, ArrowLeft, Play } from 'lucide-react';
+import { X, Command, Zap, Eye, History, Save, GitCompare, ArrowLeft, Play, Settings } from 'lucide-react';
 import { getModifierKey } from '../../hooks/useHotkeys';
 
 interface KeyboardShortcutsModalProps {
@@ -64,6 +64,13 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       modifiers: [modifierSymbol],
       description: 'Toggle preview mode',
       icon: <Eye size={16} />,
+      category: 'navigation'
+    },
+    {
+      key: 'I',
+      modifiers: [modifierSymbol],
+      description: 'Toggle metadata sidebar',
+      icon: <Settings size={16} />,
       category: 'navigation'
     },
     {

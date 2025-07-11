@@ -14,6 +14,8 @@ A production-ready, local-first desktop application for managing AI prompts with
 - 🧪 **Comprehensive Testing**: 37 tests across unit, integration, and E2E levels
 - 🔄 **Delete Recovery**: File watcher now recreates deleted .md files from database automatically
 - 🔌 **Extensibility**: Complete metadata schema system with dynamic form generation and plugin hooks
+- 📝 **Rich Metadata**: Full metadata management with tags, categories, models, and notes
+- 🔄 **Auto-Sync**: Metadata changes automatically sync between database and markdown files
 - ⚡ **Performance**: Variable processing handles 100+ variables in <1ms with 12x cache improvement
 - 🎯 **Production Ready**: All features complete with robust error handling and user experience
 
@@ -28,6 +30,7 @@ A production-ready, local-first desktop application for managing AI prompts with
 - ⌨️ **Keyboard Shortcuts** - Complete hotkey system with help modal (Cmd+?)
 - 📐 **Resizable Panels** - 3-panel layout (history, editor/preview, variables)
 - 🛡️ **Security Validation** - Content sanitization prevents HTML injection
+- 📝 **Metadata Management** - Rich metadata sidebar with tags, categories, models, and notes (Cmd+I)
 - 📝 **Enhanced Creation** - Professional editor interface for new prompts
 - ⚡ **Performance Optimized** - <50ms keystroke latency with debouncing and memoization
 - 📱 **Virtual Scrolling** - Efficient rendering of large version lists (20+ items)
@@ -142,14 +145,17 @@ The content can span multiple lines and paragraphs.
 
 ### Frontmatter Fields
 
-| Field      | Type   | Description                         |
-| ---------- | ------ | ----------------------------------- |
-| `uuid`     | String | Unique identifier (UUID v7)         |
-| `version`  | String | Semantic version (e.g., "1.0.0")    |
-| `title`    | String | Human-readable title                |
-| `tags`     | Array  | List of tags for organization       |
-| `created`  | Date   | Creation date (YYYY-MM-DD)          |
-| `modified` | Date   | Last modification date (YYYY-MM-DD) |
+| Field           | Type   | Description                         |
+| --------------- | ------ | ----------------------------------- |
+| `uuid`          | String | Unique identifier (UUID v7)         |
+| `version`       | String | Semantic version (e.g., "1.0.0")    |
+| `title`         | String | Human-readable title                |
+| `tags`          | Array  | List of tags for organization       |
+| `models`        | Array  | Compatible AI models                |
+| `category_path` | String | Hierarchical category path          |
+| `notes`         | String | Additional notes (optional)         |
+| `created`       | Date   | Creation date (YYYY-MM-DD)          |
+| `modified`      | Date   | Last modification date (YYYY-MM-DD) |
 
 ## Data Storage
 
@@ -175,6 +181,7 @@ The content can span multiple lines and paragraphs.
 - `prompt_uuid` (TEXT, foreign key)
 - `semver` (TEXT, semantic version)
 - `body` (TEXT, prompt content)
+- `metadata` (TEXT, JSON blob with rich metadata)
 - `parent_version_uuid` (TEXT, nullable)
 - `created_at` (TEXT, ISO 8601)
 
@@ -207,6 +214,7 @@ The content can span multiple lines and paragraphs.
 | `Cmd+B` / `Ctrl+B`         | Toggle version history sidebar     | Editor           |
 | `Cmd+K` / `Ctrl+K`         | Toggle preview mode                | Editor           |
 | `Cmd+?` / `Ctrl+?`         | Show keyboard shortcuts help       | Editor           |
+| `Cmd+I` / `Ctrl+I`         | Toggle metadata sidebar            | Editor           |
 | `Esc`                      | Exit diff mode or close modals     | Global           |
 | `Cmd+Enter` / `Ctrl+Enter` | Run prompt (planned)               | Editor           |
 | `F12` / `Cmd+Option+I`     | Open developer tools               | Development only |

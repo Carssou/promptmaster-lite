@@ -168,13 +168,13 @@ export function DynamicMetadataSidebar({
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 transform transition-transform duration-300 ${className}`}
+        className={`fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 transform transition-transform duration-300 flex flex-col ${className}`}
         role="dialog"
         aria-labelledby="metadata-sidebar-title"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2
               id="metadata-sidebar-title"
@@ -195,28 +195,31 @@ export function DynamicMetadataSidebar({
           </button>
         </div>
 
-        {/* Validation Summary */}
-        {validationResult.errors.general && (
-          <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-md p-3">
-            <p className="text-sm text-red-600">{validationResult.errors.general}</p>
-          </div>
-        )}
+        {/* Form Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* Validation Summary */}
+          {validationResult.errors.general && (
+            <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-600">{validationResult.errors.general}</p>
+            </div>
+          )}
 
-        {!validationResult.valid && !validationResult.errors.general && (
-          <div className="mx-4 mt-4 bg-yellow-50 border border-yellow-200 rounded-md p-3">
-            <p className="text-sm text-yellow-600">
-              Please fix the validation errors below before saving.
-            </p>
-          </div>
-        )}
+          {!validationResult.valid && !validationResult.errors.general && (
+            <div className="mx-4 mt-4 bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <p className="text-sm text-yellow-600">
+                Please fix the validation errors below before saving.
+              </p>
+            </div>
+          )}
 
-        {/* Form Content */}
-        <div className="flex-1 overflow-y-auto">
-          {groups.map(group => renderGroup(group))}
+          {/* Form Fields */}
+          <div>
+            {groups.map(group => renderGroup(group))}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-white">
+        {/* Footer - Fixed at bottom */}
+        <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
               {Object.keys(validationResult.errors).length > 0 && (

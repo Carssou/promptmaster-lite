@@ -11,7 +11,7 @@ mod security;
 mod logging;
 
 use db::init_database;
-use metadata::{metadata_get, metadata_update, metadata_get_all_tags, metadata_get_model_providers, metadata_add_model_provider, metadata_remove_model_provider};
+use metadata::{metadata_get, metadata_update, metadata_get_all_tags, metadata_get_model_providers, metadata_add_model_provider, metadata_remove_model_provider, regenerate_markdown_file};
 use prompts::{save_prompt, list_prompts};
 use versions::{get_latest_version, save_new_version, list_versions, list_versions_full, get_version_by_uuid, rollback_to_version};
 use watcher::start_file_watcher;
@@ -62,7 +62,8 @@ pub fn run() {
             metadata_get_all_tags,
             metadata_get_model_providers,
             metadata_add_model_provider,
-            metadata_remove_model_provider
+            metadata_remove_model_provider,
+            regenerate_markdown_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

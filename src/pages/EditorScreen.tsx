@@ -89,6 +89,8 @@ export function EditorScreen() {
   const [editorMarkers, setEditorMarkers] = useState<any[]>([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showMetadataSidebar, setShowMetadataSidebar] = useState(false);
+  const [currentVersionUuid, setCurrentVersionUuid] = useState<string | null>(null);
+  const [loadedMetadata, setLoadedMetadata] = useState<any>(null);
 
   // Load prompt data
   useEffect(() => {
@@ -123,6 +125,7 @@ export function EditorScreen() {
 
           if (latestVersionBody && versionList.length > 0) {
             setEditorContent(latestVersionBody);
+            setCurrentVersionUuid(versionList[0].uuid);
             setPrompt({
               ...currentPrompt,
               version: versionList[0].semver,
@@ -199,6 +202,8 @@ export function EditorScreen() {
         body: editorContent,
       });
 
+      setCurrentVersionUuid(newVersion.uuid);
+
       const updatedPrompt = {
         ...prompt,
         content: editorContent,
@@ -254,6 +259,7 @@ export function EditorScreen() {
         });
 
         setEditorContent(newVersion.body);
+        setCurrentVersionUuid(newVersion.uuid);
         setViewMode("edit");
 
         const updatedPrompt = {
@@ -367,20 +373,79 @@ export function EditorScreen() {
     }
   }, [prompt, editorContent]);
 
+  // Load metadata for current version
+  const loadMetadata = async () => {
+    if (!currentVersionUuid) return;
+    
+    try {
+      const metadata = await invoke("metadata_get", {
+        versionUuid: currentVersionUuid,
+      }) as any;
+      
+      // Transform the metadata to match frontend format
+      const transformedMetadata = {
+        title: metadata.title || "",
+        tags: metadata.tags || [],
+        models: metadata.models || [],
+        categoryPath: metadata.category_path || "Uncategorized", // Convert snake_case to camelCase
+        notes: metadata.notes || "",
+      };
+      
+      setLoadedMetadata(transformedMetadata);
+    } catch (error) {
+      console.error("Error loading metadata:", error);
+      // Use default metadata if loading fails
+      setLoadedMetadata({
+        title: prompt?.title || "",
+        tags: prompt?.tags || [],
+        models: [],
+        categoryPath: "Uncategorized",
+        notes: "",
+      });
+    }
+  };
+
   // Handle metadata save
   const handleMetadataSave = async (data: any) => {
-    if (!prompt) return;
+    if (!prompt || !currentVersionUuid) return;
+
+    // Transform the data to match the Rust struct format
+    const rustMetadata = {
+      title: data.title && data.title.trim() ? data.title.trim() : null,
+      tags: data.tags && data.tags.length > 0 ? data.tags : null,
+      models: data.models && data.models.length > 0 ? data.models : null,
+      category_path: data.categoryPath && data.categoryPath.trim() ? data.categoryPath.trim() : null, // Convert camelCase to snake_case
+      notes: data.notes && data.notes.trim() ? data.notes.trim() : null,
+      custom_fields: null,
+    };
 
     try {
       console.log("Saving metadata:", data);
+      console.log("Rust metadata payload:", JSON.stringify(rustMetadata, null, 2));
+      
+      // Call the Tauri command to save metadata
+      await invoke("metadata_update", {
+        versionUuid: currentVersionUuid,
+        payloadJson: JSON.stringify(rustMetadata),
+      });
+
       toast.success("Metadata saved successfully!", {
         duration: 3000,
         icon: "📝",
       });
+      
+      // Reload metadata to reflect changes
+      await loadMetadata();
+      
+      // Regenerate the markdown file with updated metadata
+      await invoke("regenerate_markdown_file", {
+        promptUuid: prompt.uuid,
+      });
     } catch (error) {
       console.error("Error saving metadata:", error);
-      toast.error("Failed to save metadata. Please try again.", {
-        duration: 6000,
+      console.error("Failed payload:", JSON.stringify(rustMetadata, null, 2));
+      toast.error(`Failed to save metadata: ${error}`, {
+        duration: 8000,
         icon: "❌",
       });
       throw error;
@@ -420,6 +485,9 @@ export function EditorScreen() {
             break;
           case "i":
             e.preventDefault();
+            if (!showMetadataSidebar) {
+              loadMetadata();
+            }
             setShowMetadataSidebar(!showMetadataSidebar);
             break;
         }
@@ -548,7 +616,12 @@ export function EditorScreen() {
             </button>
 
             <button
-              onClick={() => setShowMetadataSidebar(!showMetadataSidebar)}
+              onClick={() => {
+                if (!showMetadataSidebar) {
+                  loadMetadata();
+                }
+                setShowMetadataSidebar(!showMetadataSidebar);
+              }}
               className={`p-2 rounded-md transition-colors ${
                 showMetadataSidebar
                   ? "bg-blue-100 text-blue-600"
@@ -689,12 +762,12 @@ export function EditorScreen() {
       />
 
       {/* Metadata Sidebar */}
-      {prompt && (
+      {prompt && currentVersionUuid && (
         <DynamicMetadataSidebar
           isOpen={showMetadataSidebar}
           onClose={() => setShowMetadataSidebar(false)}
-          versionUuid={prompt.uuid}
-          initialData={{
+          versionUuid={currentVersionUuid}
+          initialData={loadedMetadata || {
             title: prompt.title,
             tags: prompt.tags,
             models: [],

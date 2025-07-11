@@ -118,11 +118,12 @@ npm run test:all               # Run all test suites
 ### Metadata Management
 
 - `metadata_get(version_uuid)` - Fetch metadata for a specific version
-- `metadata_update(version_uuid, payload_json)` - Update metadata with merge functionality
+- `metadata_update(version_uuid, payload_json)` - Update metadata with merge functionality and prompts table sync
 - `metadata_get_all_tags()` - Get unique tags for autocomplete
 - `metadata_get_model_providers()` - Get available AI models from database
 - `metadata_add_model_provider(model_id, name, provider)` - Add new AI model
 - `metadata_remove_model_provider(model_id)` - Remove AI model
+- `regenerate_markdown_file(app_handle, prompt_uuid)` - Regenerate .md file with updated metadata
 
 ### File System
 
@@ -147,6 +148,9 @@ Five main tables:
 - **Category Organization**: Hierarchical categories via `category_path` column
 - **Tag Autocomplete**: Extracted from existing prompts for smart suggestions
 - **YAML Integration**: Metadata automatically merged into .md file frontmatter
+- **Data Synchronization**: Metadata changes automatically sync to prompts table (title, tags, category_path)
+- **Markdown Generation**: Full markdown file regeneration with updated frontmatter (including models field)
+- **Scrollable UI**: Dynamic metadata sidebar with proper scrolling for accessibility
 
 ## Error Handling & Logging
 
@@ -174,9 +178,10 @@ Five main tables:
 ### 🔧 BUILD NOTES
 
 - Both frontend and backend compile successfully
-- All 7 Tauri commands working with real database
+- All 8 Tauri commands working with real database (including regenerate_markdown_file)
 - Cross-platform support (Windows, macOS, Linux)
 - Comprehensive test suite: 37 total tests (18 unit + 19 integration)
+- **Metadata System**: Fully functional with database synchronization and markdown file updates
 
 ### ✅ ALL TASKS COMPLETED (2025-07-10)
 

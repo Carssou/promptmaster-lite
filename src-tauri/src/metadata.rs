@@ -3,6 +3,7 @@ use serde_json;
 use crate::db::get_database;
 use crate::error::{AppError, Result};
 use rusqlite::{params, OptionalExtension};
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PromptMetadata {
@@ -158,11 +159,18 @@ pub async fn metadata_update(version_uuid: String, payload_json: String) -> std:
     
     let final_metadata = db.with_transaction(|tx| {
         // Get existing metadata
-        let existing_metadata_json: Option<String> = tx.query_row(
+        let existing_metadata_json: Option<String> = match tx.query_row(
             "SELECT metadata FROM versions WHERE uuid = ?1",
             params![version_uuid],
-            |row| Ok(row.get(0)?)
-        ).optional()?;
+            |row| {
+                let metadata: Option<String> = row.get(0)?;
+                Ok(metadata)
+            }
+        ).optional()? {
+            Some(Some(json_str)) => Some(json_str),
+            Some(None) => None,
+            None => None,
+        };
         
         // Merge with existing metadata
         let mut final_metadata = match existing_metadata_json {
@@ -200,11 +208,161 @@ pub async fn metadata_update(version_uuid: String, payload_json: String) -> std:
             )?;
         }
         
+        if let Some(ref category_path) = final_metadata.category_path {
+            tx.execute(
+                "UPDATE prompts SET category_path = ?1, updated_at = datetime('now') WHERE uuid = (SELECT prompt_uuid FROM versions WHERE uuid = ?2)",
+                params![category_path, version_uuid]
+            )?;
+        }
+        
         Ok(final_metadata)
     })?;
     
     log::info!("Successfully updated metadata for version: {}", version_uuid);
     Ok(final_metadata)
+}
+
+/// Regenerate markdown file after metadata update
+#[tauri::command]
+pub async fn regenerate_markdown_file(app_handle: tauri::AppHandle, prompt_uuid: String) -> std::result::Result<(), String> {
+    log::info!("Regenerating markdown file for prompt: {}", prompt_uuid);
+    
+    let db = get_database()?;
+    
+    // Get the prompt and latest version data
+    let (prompt_data, latest_version, metadata) = db.with_connection(|conn| {
+        // Get prompt data
+        let mut stmt = conn.prepare(
+            "SELECT title, tags, category_path, created_at, updated_at FROM prompts WHERE uuid = ?1"
+        )?;
+        
+        let (title, tags_json, category_path, created_at, updated_at) = stmt.query_row(
+            [&prompt_uuid],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            }
+        )?;
+        
+        // Get latest version with metadata
+        let mut stmt = conn.prepare(
+            "SELECT semver, body, metadata FROM versions WHERE prompt_uuid = ?1 ORDER BY created_at DESC LIMIT 1"
+        )?;
+        
+        let (version, body, metadata) = stmt.query_row(
+            [&prompt_uuid],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            }
+        )?;
+        
+        Ok(((title, tags_json, category_path, created_at, updated_at), (version, body), metadata))
+    })?;
+    
+    // Generate filename and content
+    let (title, tags_json, category_path, created_at, _updated_at) = prompt_data;
+    let (version, body) = latest_version;
+    
+    // Parse metadata to extract notes and models
+    let (notes, models) = if let Some(metadata_json) = metadata {
+        match PromptMetadata::from_json(&metadata_json) {
+            Ok(metadata) => (
+                metadata.notes.unwrap_or_default(),
+                metadata.models.unwrap_or_default(),
+            ),
+            Err(_) => (String::new(), Vec::new()),
+        }
+    } else {
+        (String::new(), Vec::new())
+    };
+    
+    let created_date = created_at.split('T').next().unwrap_or("unknown");
+    let modified_date = chrono::Utc::now().format("%Y-%m-%d");
+    
+    let filename = format!(
+        "{}--{}--v{}.md",
+        created_date,
+        title.to_lowercase()
+            .replace(' ', "-")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .collect::<String>(),
+        version
+    );
+    
+    // Delete old file if it exists with different name
+    let old_filename = format!(
+        "{}-{}-{}.md",
+        created_date,
+        title.to_lowercase()
+            .replace(' ', "-")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .collect::<String>(),
+        version
+    );
+    
+    let prompts_dir = app_handle.path().document_dir()
+        .map_err(|e| format!("Failed to get documents directory: {}", e))?
+        .join("PromptMaster");
+    
+    // Remove old file if it exists
+    let old_file_path = prompts_dir.join(&old_filename);
+    if old_file_path.exists() {
+        std::fs::remove_file(&old_file_path)
+            .map_err(|e| format!("Failed to remove old file: {}", e))?;
+        log::info!("Removed old file: {}", old_filename);
+    }
+    
+    let models_json = serde_json::to_string(&models).unwrap_or_else(|_| "[]".to_string());
+    
+    let frontmatter = if notes.is_empty() {
+        format!(
+            "---\nuuid: \"{}\"\nversion: \"{}\"\ntitle: \"{}\"\ntags: {}\nmodels: {}\ncategory_path: \"{}\"\ncreated: {}\nmodified: {}\n---\n\n{}",
+            prompt_uuid,
+            version,
+            title,
+            tags_json,
+            models_json,
+            category_path,
+            created_date,
+            modified_date,
+            body
+        )
+    } else {
+        format!(
+            "---\nuuid: \"{}\"\nversion: \"{}\"\ntitle: \"{}\"\ntags: {}\nmodels: {}\ncategory_path: \"{}\"\nnotes: \"{}\"\ncreated: {}\nmodified: {}\n---\n\n{}",
+            prompt_uuid,
+            version,
+            title,
+            tags_json,
+            models_json,
+            category_path,
+            notes,
+            created_date,
+            modified_date,
+            body
+        )
+    };
+    
+    // Write the file
+    std::fs::create_dir_all(&prompts_dir)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+    
+    std::fs::write(prompts_dir.join(&filename), frontmatter)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    log::info!("Successfully regenerated markdown file: {}", filename);
+    Ok(())
 }
 
 /// Get all unique tags from the database for autocomplete
