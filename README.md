@@ -2,13 +2,21 @@
 
 A production-ready, local-first desktop application for managing AI prompts with versioning, live preview, and comprehensive testing. Built with Tauri 2.0 and React.
 
-![PromptMaster Lite](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![PromptMaster Lite](https://img.shields.io/badge/version-0.5.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 ![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)
 ![Accessibility](https://img.shields.io/badge/accessibility-WCAG%20compliant-green.svg)
 
-## ✨ What's New in v0.5.0
+## ✨ What's New in v0.5.1
+
+- 🪟 **Windows UI Fixes**: Fixed dark input fields, invisible icons, and light grey preview text on Windows
+- 📝 **Preview Line Breaks**: Single line breaks in editor now appear correctly in preview  
+- 💡 **User Guidance**: Added helpful tip about breaking long lines for easier referencing
+- 🎨 **Cross-Platform Consistency**: Improved visual consistency between macOS and Windows
+- 🔧 **Editor Improvements**: Better editor/preview synchronization
+
+### Previous Release (v0.5.0)
 
 - ♿ **Full Accessibility**: WCAG compliant with ARIA roles, keyboard navigation, and screen reader support
 - 🧪 **Comprehensive Testing**: 37 tests across unit, integration, and E2E levels

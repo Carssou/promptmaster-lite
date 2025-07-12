@@ -197,7 +197,7 @@ export function TagsInput({
             onBlur={handleInputBlur}
             onFocus={handleInputFocus}
             placeholder={tags.length === 0 ? placeholder : ""}
-            className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+            className="flex-1 min-w-[120px] outline-none bg-transparent text-sm text-gray-900"
             maxLength={maxTagLength}
           />
         )}

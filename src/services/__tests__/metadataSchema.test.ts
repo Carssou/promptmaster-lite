@@ -6,8 +6,7 @@ import {
   MetadataSchemaRegistry, 
   metadataSchemaRegistry, 
   coreMetadataSchema,
-  MetadataSchema,
-  MetadataFieldSchema
+  MetadataSchema
 } from '../metadataSchema';
 
 describe('MetadataSchemaRegistry', () => {

@@ -27,13 +27,11 @@ export function ModelsMultiSelect({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [availableModels, setAvailableModels] = useState<ModelProvider[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Load models from backend
   useEffect(() => {
     const loadModels = async () => {
       try {
-        setLoading(true);
         const { invoke } = await import("@tauri-apps/api/core");
         const models = await invoke<ModelProvider[]>(
           "metadata_get_model_providers"
@@ -42,8 +40,6 @@ export function ModelsMultiSelect({
       } catch (error) {
         console.error("Failed to load model providers:", error);
         setAvailableModels([]);
-      } finally {
-        setLoading(false);
       }
     };
 

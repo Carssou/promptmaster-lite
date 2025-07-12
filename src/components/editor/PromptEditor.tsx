@@ -110,6 +110,7 @@ function PromptEditorComponent({
       const saveEvent = new CustomEvent('editor-save', { detail: { value: editor.getValue() } });
       window.dispatchEvent(saveEvent);
     });
+
   }, [completionProvider]);
 
   // Memoize monaco markers to avoid recreation
@@ -147,12 +148,18 @@ function PromptEditorComponent({
     }
   }, [value, localValue]);
 
+
   return (
     <PerformanceProfiler id="PromptEditor">
       <div className="h-full w-full border border-gray-300 rounded-lg overflow-hidden" data-testid="prompt-editor">
-        <div className="h-full">
+        {/* Tip bar */}
+        <div className="bg-amber-50 border-b border-amber-200 px-3 py-1 text-xs text-amber-700">
+          💡 Tip: Press Enter to break long lines for easier line referencing
+        </div>
+        
+        <div className="flex-1" style={{ height: 'calc(100% - 29px)' }}>
           <Editor
-            height="600px"
+            height="100%"
             width="100%"
             defaultLanguage="markdown"
             theme="vs-dark"

@@ -1,4 +1,3 @@
-import React from "react";
 import { MetadataFieldSchema } from "../../services/metadataSchema";
 import { TagsInput } from "./TagsInput";
 import { ModelsMultiSelect } from "./ModelsMultiSelect";

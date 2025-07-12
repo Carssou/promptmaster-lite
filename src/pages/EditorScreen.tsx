@@ -578,7 +578,7 @@ export function EditorScreen() {
               className={`p-2 rounded-md transition-colors ${
                 showVersionHistory
                   ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
               title="Version History"
             >
@@ -592,7 +592,7 @@ export function EditorScreen() {
               className={`p-2 rounded-md transition-colors ${
                 viewMode === "preview"
                   ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
               title={viewMode === "preview" ? "Edit Mode" : "Preview Mode"}
             >
@@ -608,7 +608,7 @@ export function EditorScreen() {
               className={`p-2 rounded-md transition-colors ${
                 showVariables
                   ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
               title="Variables Panel"
             >
@@ -625,7 +625,7 @@ export function EditorScreen() {
               className={`p-2 rounded-md transition-colors ${
                 showMetadataSidebar
                   ? "bg-blue-100 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  : "bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
               title="Metadata"
             >

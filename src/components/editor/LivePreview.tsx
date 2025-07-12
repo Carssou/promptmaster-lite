@@ -27,8 +27,12 @@ export function LivePreview({ content, variables = {}, className = '', debounceM
   // Memoize the processing function to avoid recreation
   const processContent = useCallback(async (contentToProcess: string, varsToUse: Record<string, string>) => {
     try {
+      // Convert single line breaks to double line breaks for proper Markdown rendering
+      // This ensures that pressing Enter in the editor creates visible line breaks in preview
+      const contentWithBreaks = contentToProcess.replace(/(?<!\n)\n(?!\n)/g, '\n\n');
+      
       // Substitute variables
-      const substituted = substituteVariables(contentToProcess, varsToUse);
+      const substituted = substituteVariables(contentWithBreaks, varsToUse);
       
       // Check cache first for security validation
       let validation = validationCache.get(substituted);
@@ -146,7 +150,7 @@ export function LivePreview({ content, variables = {}, className = '', debounceM
     ),
     // Style blockquotes
     blockquote: ({ node, children, ...props }: any) => (
-      <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-700 my-4" {...props}>
+      <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-800 my-4" {...props}>
         {children}
       </blockquote>
     )
@@ -160,7 +164,7 @@ export function LivePreview({ content, variables = {}, className = '', debounceM
         </div>
       )}
       
-      <div className="h-full overflow-auto p-4 bg-white prose prose-sm max-w-none">
+      <div className="h-full overflow-auto p-4 bg-white prose prose-sm max-w-none text-gray-900 prose-headings:text-gray-900 prose-p:text-gray-900 prose-li:text-gray-900 prose-strong:text-gray-900">
         {isProcessing ? (
           <div className="space-y-4">
             <TextSkeleton lines={8} />
