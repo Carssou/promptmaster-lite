@@ -104,7 +104,7 @@ A production-ready, local-first desktop application for managing AI prompts with
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
 # Fedora
 sudo dnf install webkit2gtk4.0-devel libappindicator-gtk3-devel librsvg2-devel patchelf
@@ -363,8 +363,11 @@ GitHub Actions automatically:
 **Error: "webkit2gtk not found"**
 
 ```bash
-# Install webkit2gtk development headers
-sudo apt-get install libwebkit2gtk-4.0-dev
+# Install webkit2gtk development headers (Ubuntu 22.04+)
+sudo apt-get install libwebkit2gtk-4.1-dev
+
+# For older Ubuntu versions, use:
+# sudo apt-get install libwebkit2gtk-4.0-dev
 ```
 
 **Error: "failed to bundle project"**
