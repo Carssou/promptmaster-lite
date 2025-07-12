@@ -28,6 +28,12 @@ jobs:
     - name: Run linter
       run: npm run lint || echo "No lint script found"
     
+    - name: Run unit tests
+      run: npm run test
+    
+    - name: Run integration tests
+      run: npm run test:integration
+    
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
     
