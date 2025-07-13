@@ -2,6 +2,7 @@ use rusqlite::{Connection, Result as SqliteResult};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use crate::error::{AppError, Result};
+use crate::migrations::MigrationManager;
 
 pub struct DatabaseManager {
     connection: Arc<Mutex<Connection>>,
@@ -22,6 +23,13 @@ impl DatabaseManager {
         
         // Initialize database schema
         Self::create_tables(&conn)?;
+        
+        // Run migrations for existing databases
+        let migrations_run = MigrationManager::run_migrations(&conn)?;
+        if migrations_run > 0 {
+            log::info!("Database updated with {} migrations", migrations_run);
+            crate::migration_status::set_migrations_just_run();
+        }
         
         // Initialize default data
         Self::initialize_default_data(&conn)?;
@@ -86,9 +94,54 @@ impl DatabaseManager {
             ON runs(version_uuid);
             
             CREATE VIRTUAL TABLE IF NOT EXISTS prompts_fts USING fts5(
-                title, body, tags,
-                content_rowid=rowid
+                uuid,
+                title,
+                body,
+                tags,
+                notes
             );
+            
+            -- FTS sync triggers for versions table
+            CREATE TRIGGER IF NOT EXISTS fts_versions_insert AFTER INSERT ON versions
+            BEGIN
+                INSERT INTO prompts_fts(uuid, title, body, tags, notes)
+                SELECT 
+                    NEW.uuid,
+                    p.title,
+                    NEW.body,
+                    REPLACE(REPLACE(REPLACE(COALESCE(p.tags, ''), '[', ''), ']', ''), '"', ''),
+                    COALESCE(json_extract(NEW.metadata, '$.notes'), '')
+                FROM prompts p
+                WHERE p.uuid = NEW.prompt_uuid;
+            END;
+            
+            CREATE TRIGGER IF NOT EXISTS fts_versions_update AFTER UPDATE ON versions
+            BEGIN
+                DELETE FROM prompts_fts WHERE uuid = NEW.uuid;
+                INSERT INTO prompts_fts(uuid, title, body, tags, notes)
+                SELECT 
+                    NEW.uuid,
+                    p.title,
+                    NEW.body,
+                    REPLACE(REPLACE(REPLACE(COALESCE(p.tags, ''), '[', ''), ']', ''), '"', ''),
+                    COALESCE(json_extract(NEW.metadata, '$.notes'), '')
+                FROM prompts p
+                WHERE p.uuid = NEW.prompt_uuid;
+            END;
+            
+            CREATE TRIGGER IF NOT EXISTS fts_versions_delete AFTER DELETE ON versions
+            BEGIN
+                DELETE FROM prompts_fts WHERE uuid = OLD.uuid;
+            END;
+            
+            -- FTS sync triggers for prompts table (title/tags updates)
+            CREATE TRIGGER IF NOT EXISTS fts_prompts_update AFTER UPDATE ON prompts
+            BEGIN
+                UPDATE prompts_fts SET
+                    title = NEW.title,
+                    tags = REPLACE(REPLACE(REPLACE(COALESCE(NEW.tags, ''), '[', ''), ']', ''), '"', '')
+                WHERE uuid IN (SELECT uuid FROM versions WHERE prompt_uuid = NEW.uuid);
+            END;
             
             CREATE TABLE IF NOT EXISTS model_providers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

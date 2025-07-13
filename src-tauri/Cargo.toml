@@ -1,6 +1,6 @@
 [package]
 name = "promptmaster-lite"
-version = "0.5.1"
+version = "0.6.0"
 description = "A Tauri App"
 authors = ["Ludovic Carceles"]
 edition = "2021"

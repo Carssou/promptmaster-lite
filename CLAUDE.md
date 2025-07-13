@@ -280,3 +280,50 @@ Five main tables:
 - Testing approaches
 
 The rules in `.cursorrules` are mandatory for maintaining code quality and consistency across the project.
+
+## Database Migrations
+
+The project uses a file-based migration system for schema updates:
+
+### Migration System Architecture
+
+- **Migration Runner**: `src-tauri/src/migrations.rs` - Checks schema version and runs pending migrations
+- **Individual Migrations**: `src-tauri/src/migrations/m{VERSION}_{DESCRIPTION}.rs` - Self-contained migration files
+- **Schema Versioning**: `schema_version` table tracks applied migrations
+
+### Adding New Migrations
+
+1. **Create migration file**: `src-tauri/src/migrations/m002_description.rs`
+2. **Implement migration**: Export `pub fn run(conn: &Connection) -> Result<()>`
+3. **Register migration**: Add to `migrations.rs` with version check
+4. **Test thoroughly**: On both new and existing databases
+
+### Migration Guidelines
+
+- **One purpose per migration**: Keep migrations focused and atomic
+- **Use descriptive names**: `m003_add_fts_triggers.rs` not `m003_misc.rs`
+- **Handle failures gracefully**: Use `IF NOT EXISTS` for idempotent operations
+- **Never modify existing migrations**: Once released, migrations are immutable
+- **Sequential versioning**: Always increment version numbers sequentially
+
+### Example Migration Structure
+
+```rust
+// src-tauri/src/migrations/m002_add_indexes.rs
+use rusqlite::Connection;
+use crate::error::Result;
+
+pub fn run(conn: &Connection) -> Result<()> {
+    log::info!("Running migration 2: Add performance indexes");
+    
+    conn.execute_batch(r#"
+        CREATE INDEX IF NOT EXISTS idx_prompts_category 
+        ON prompts(category_path);
+    "#)?;
+    
+    log::info!("Migration 2 completed successfully");
+    Ok(())
+}
+```
+
+See `src-tauri/src/migrations/README.md` for complete migration documentation.

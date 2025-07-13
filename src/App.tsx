@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { NewPrompt } from './pages/NewPrompt';
 import { EditorScreen } from './pages/EditorScreen';
+import { MigrationDialog } from './components/migration/MigrationDialog';
 
 const router = createBrowserRouter([
   {
@@ -51,6 +52,7 @@ export default function App() {
     <>
       <RouterProvider router={router} />
       <Toaster />
+      <MigrationDialog />
     </>
   );
 }

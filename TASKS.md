@@ -79,9 +79,9 @@ This document outlines all tasks needed to implement prompt discoverability feat
 
 ## 2. Full-Text Search (FTS5)
 
-### 2.1 Database Schema
+### 2.1 Database Schema ✅ COMPLETED
 
-- [ ] **Create FTS5 virtual table** (`src-tauri/src/db.rs`)
+- [x] **Create FTS5 virtual table** (`src-tauri/src/db.rs`)
   ```sql
   CREATE VIRTUAL TABLE prompts_fts USING fts5(
     uuid,
@@ -93,17 +93,17 @@ This document outlines all tasks needed to implement prompt discoverability feat
     content_rowid='rowid'
   );
   ```
-- [ ] **Create FTS sync triggers** (`src-tauri/src/db.rs`)
+- [x] **Create FTS sync triggers** (`src-tauri/src/db.rs`)
   - Trigger on versions INSERT/UPDATE/DELETE
   - Sync content to FTS table
 
-### 2.2 Backend Search API
+### 2.2 Backend Search API ✅ COMPLETED
 
-- [ ] **Create search module** (`src-tauri/src/search.rs`)
+- [x] **Create search module** (`src-tauri/src/search.rs`)
   - `search_prompts(query, limit, offset)` command
   - BM25 ranking with snippets
   - Query parser for phrases, prefixes, filters
-- [ ] **Add search result types** (`src-tauri/src/search.rs`)
+- [x] **Add search result types** (`src-tauri/src/search.rs`)
   ```rust
   pub struct SearchHit {
     pub uuid: String,
@@ -113,16 +113,16 @@ This document outlines all tasks needed to implement prompt discoverability feat
   }
   ```
 
-### 2.3 Frontend Search Components
+### 2.3 Frontend Search Components ✅ COMPLETED
 
-- [ ] **Create GlobalSearch component** (`src/components/search/GlobalSearch.tsx`)
+- [x] **Create GlobalSearch component** (`src/components/search/GlobalSearch.tsx`)
   - Top navbar search bar
   - Keyboard shortcut: Cmd/Ctrl + F
   - Autocomplete with top 5 results
-- [ ] **Create SearchResults component** (`src/components/search/SearchResults.tsx`)
+- [x] **Create SearchResults component** (`src/components/search/SearchResults.tsx`)
   - Results list with title + snippet
   - Navigation to EditorScreen on selection
-- [ ] **Add search query parser** (`src/services/searchParser.ts`)
+- [x] **Add search query parser** (`src/services/searchParser.ts`)
   - Parse `tag:marketing`, `model:gpt-4`, phrase queries
   - Convert to FTS5 query syntax
 
@@ -361,6 +361,42 @@ sha2 = "0.10"
 
 ---
 
-**Total Estimated Tasks: ~85 individual tasks across 10 major feature areas**
+## 11. Maintenance & Technical Debt
 
-This comprehensive task list covers all requirements from the prompt discoverability specification, organized by feature area with clear implementation priorities.
+### 11.1 Dependency Updates
+
+- [ ] **Update serde_yaml dependency** (`src-tauri/Cargo.toml`)
+  - Issue: `serde_yaml v0.9.34+deprecated` warning during build
+  - Solution: Migrate to `serde_yml` or newer non-deprecated version
+  - Impact: Prevents future breaking changes, removes deprecation warnings
+  - Files affected: Any YAML parsing in Rust backend
+
+### 11.2 Bundle Configuration
+
+- [ ] **Fix macOS bundle identifier** (`src-tauri/tauri.conf.json`)
+  - Issue: `"com.promptmaster.app"` conflicts with macOS `.app` extension
+  - Solution: Change to `"com.promptmaster.lite"` or `"com.promptmaster.promptmaster"`
+  - Impact: Follows macOS best practices, removes build warnings
+  - Warning: "The bundle identifier ends with `.app`. This is not recommended"
+
+### 11.3 Dependency Leaks
+
+- [ ] **Investigate and fix leaking dependency warning**
+  - Issue: Warning during `npm run dev` about leaking dependencies
+  - Solution: Identify specific dependency and fix import/usage pattern
+  - Impact: Improved performance and memory usage
+  - Investigation needed: Check console output during development
+
+### 11.4 Build Optimizations
+
+- [ ] **Address large bundle size warnings**
+  - Issue: Some chunks >500 kB after minification
+  - Solution: Implement code splitting and manual chunking
+  - Impact: Faster load times, better performance
+  - Files: Vite build configuration, dynamic imports
+
+---
+
+**Total Estimated Tasks: ~89 individual tasks across 11 major areas (10 feature + 1 maintenance)**
+
+This comprehensive task list covers all requirements from the prompt discoverability specification plus ongoing maintenance needs, organized by feature area with clear implementation priorities.

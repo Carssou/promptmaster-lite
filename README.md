@@ -2,21 +2,29 @@
 
 A production-ready, local-first desktop application for managing AI prompts with versioning, live preview, and comprehensive testing. Built with Tauri 2.0 and React.
 
-![PromptMaster Lite](https://img.shields.io/badge/version-0.5.1-blue.svg)
+![PromptMaster Lite](https://img.shields.io/badge/version-0.6.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 ![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)
 ![Accessibility](https://img.shields.io/badge/accessibility-WCAG%20compliant-green.svg)
 
-## ✨ What's New in v0.5.1
+## ✨ What's New in v0.6.0
 
-- 🪟 **Windows UI Fixes**: Fixed dark input fields, invisible icons, and light grey preview text on Windows
-- 📝 **Preview Line Breaks**: Single line breaks in editor now appear correctly in preview  
+- 🔍 **Full-Text Search**: Complete FTS5 search system with SQLite backend and BM25 ranking
+- 🔎 **Global Search Bar**: Cmd/Ctrl+F for instant search with autocomplete (min 3 characters)
+- 🏷️ **Advanced Search Syntax**: Search by field with `tag:marketing`, `model:gpt-4`, `notes:analysis`
+- ⚡ **Real-time Results**: Debounced search with highlighted snippets and relevance scoring
+- 📊 **Search Performance**: Optimized FTS5 queries with automatic index synchronization
+- 🎯 **Precise Navigation**: Click any search result to jump directly to that prompt
+
+### Previous Release (v0.5.1)
+
+- 🪟 **Windows UI Fixes**: Fixed dark input fields, invisible icons, and light grey preview text
+- 📝 **Preview Line Breaks**: Single line breaks in editor now appear correctly in preview
 - 💡 **User Guidance**: Added helpful tip about breaking long lines for easier referencing
-- 🎨 **Cross-Platform Consistency**: Improved visual consistency between macOS and Windows
-- 🔧 **Editor Improvements**: Better editor/preview synchronization
+- 🎨 **Cross-Platform Consistency**: Improved visual consistency between platforms
 
-### Previous Release (v0.5.0)
+### Earlier Release (v0.5.0)
 
 - ♿ **Full Accessibility**: WCAG compliant with ARIA roles, keyboard navigation, and screen reader support
 - 🧪 **Comprehensive Testing**: 37 tests across unit, integration, and E2E levels
@@ -36,6 +44,7 @@ A production-ready, local-first desktop application for managing AI prompts with
 - 🔧 **Variable Management** - Automatic `{{variable}}` detection with sidebar panel
 - 📊 **Version Diff Viewer** - Side-by-side comparison with Monaco Diff Editor
 - ⌨️ **Keyboard Shortcuts** - Complete hotkey system with help modal (Cmd+?)
+- 🔍 **Full-Text Search** - FTS5-powered search with field-specific queries and autocomplete (Cmd+F)
 - 📐 **Resizable Panels** - 3-panel layout (history, editor/preview, variables)
 - 🛡️ **Security Validation** - Content sanitization prevents HTML injection
 - 📝 **Metadata Management** - Rich metadata sidebar with tags, categories, models, and notes (Cmd+I)
@@ -58,9 +67,11 @@ A production-ready, local-first desktop application for managing AI prompts with
 
 ### Planned Features
 
-- 🔍 **Full-text search** with SQLite FTS5 (database schema ready)
 - 📊 **Performance tracking** - BLEU, ROUGE, and custom metrics (database schema ready)
 - 💰 **Cost tracking** - Token counts and USD costs (database schema ready)
+- 🌲 **Category Tree Navigation** - Hierarchical organization with drag & drop
+- ⚡ **Quick Switcher** - Cmd+P fuzzy search for rapid navigation
+- 📁 **Import System** - Drag & drop support for .md, .json, and .txt files
 
 ## Setup Instructions
 
@@ -223,6 +234,7 @@ The content can span multiple lines and paragraphs.
 | `Cmd+K` / `Ctrl+K`         | Toggle preview mode                | Editor           |
 | `Cmd+?` / `Ctrl+?`         | Show keyboard shortcuts help       | Editor           |
 | `Cmd+I` / `Ctrl+I`         | Toggle metadata sidebar            | Editor           |
+| `Cmd+F` / `Ctrl+F`         | Focus global search bar            | Global           |
 | `Esc`                      | Exit diff mode or close modals     | Global           |
 | `Cmd+Enter` / `Ctrl+Enter` | Run prompt (planned)               | Editor           |
 | `F12` / `Cmd+Option+I`     | Open developer tools               | Development only |

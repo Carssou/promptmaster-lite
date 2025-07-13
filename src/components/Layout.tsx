@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { Home, Plus, BarChart3, Settings } from "lucide-react";
 import { useEffect } from "react";
+import { GlobalSearch } from "./search/GlobalSearch";
 
 export function Layout() {
   const navigate = useNavigate();
@@ -20,12 +21,16 @@ export function Layout() {
     };
   }, [navigate]);
 
+  const handleSearchSelect = (promptUuid: string) => {
+    navigate(`/editor/${promptUuid}`);
+  };
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <nav className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-lg font-semibold text-gray-900">PromptMaster</h1>
+      <nav className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PromptMaster</h1>
         </div>
 
         <div className="flex-1 p-4">
@@ -46,10 +51,20 @@ export function Layout() {
         </div>
       </nav>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top navbar with search */}
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex-shrink-0">
+          <div className="max-w-lg">
+            <GlobalSearch onSelectResult={handleSearchSelect} />
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
