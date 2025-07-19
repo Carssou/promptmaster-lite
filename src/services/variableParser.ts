@@ -10,6 +10,12 @@ const validateCache = new Map<string, Array<{
   severity: 'error' | 'warning';
 }>>;
 
+// Configuration for cache management
+const CACHE_CONFIG = {
+  MAX_SIZE: parseInt(process.env.VARIABLE_PARSER_CACHE_SIZE || '100', 10),
+  CLEANUP_INTERVAL: parseInt(process.env.VARIABLE_PARSER_CLEANUP_INTERVAL || '30000', 10),
+};
+
 // Pre-compiled regex patterns for better performance
 const VARIABLE_REGEX = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
 const SUBSTITUTION_REGEX = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
@@ -20,10 +26,10 @@ const INVALID_VARS_REGEX = /\{\{\s*([^a-zA-Z0-9_\s}]+)\s*\}\}/g;
 
 // Cache cleanup function to prevent memory leaks
 function cleanupCache() {
-  if (parseCache.size > 100) {
+  if (parseCache.size > CACHE_CONFIG.MAX_SIZE) {
     parseCache.clear();
   }
-  if (validateCache.size > 100) {
+  if (validateCache.size > CACHE_CONFIG.MAX_SIZE) {
     validateCache.clear();
   }
 }
@@ -32,7 +38,7 @@ function cleanupCache() {
 let cleanupTimeout: NodeJS.Timeout | null = null;
 function scheduleCleanup() {
   if (cleanupTimeout) clearTimeout(cleanupTimeout);
-  cleanupTimeout = setTimeout(cleanupCache, 30000); // Clean every 30 seconds
+  cleanupTimeout = setTimeout(cleanupCache, CACHE_CONFIG.CLEANUP_INTERVAL);
 }
 
 export interface Variable {

@@ -2,31 +2,70 @@ import { describe, it, expect } from 'vitest';
 import { parseVariables, substituteVariables, validateVariableUsage, clearCaches } from '../../src/services/variableParser';
 
 describe('Performance Integration Tests', () => {
+  // Helper function to measure operation timing with better precision
+  function measureOperation<T>(operation: () => T, operationName: string): { result: T; duration: number } {
+    // Warm up the operation first to avoid cold start effects
+    operation();
+    
+    // Use multiple measurements for better accuracy
+    const measurements: number[] = [];
+    let result: T;
+    
+    for (let i = 0; i < 5; i++) {
+      const start = performance.now();
+      result = operation();
+      const end = performance.now();
+      measurements.push(end - start);
+    }
+    
+    // Use median to avoid outliers
+    measurements.sort((a, b) => a - b);
+    const medianDuration = measurements[Math.floor(measurements.length / 2)];
+    
+    console.log(`${operationName}: ${medianDuration.toFixed(2)}ms (median of 5 runs)`);
+    
+    return { result: result!, duration: medianDuration };
+  }
+
   it('should handle large content efficiently', () => {
     // Generate large content with many variables
     const variableCount = 100;
     const variables = Array.from({ length: variableCount }, (_, i) => `var${i}`);
     const largeContent = variables.map(v => `This is {{${v}}} content.`).join(' ');
     
-    console.time('Parse large content');
-    const parsedVars = parseVariables(largeContent);
-    console.timeEnd('Parse large content');
+    const { result: parsedVars, duration } = measureOperation(
+      () => parseVariables(largeContent),
+      'Parse 100 variables'
+    );
     
     expect(parsedVars).toHaveLength(variableCount);
     expect(parsedVars).toEqual(variables);
+    expect(duration).toBeLessThan(50); // Should be well under 50ms
+    
+    // Verify we have real measurements (microsecond precision is fine)
+    expect(duration).toBeGreaterThan(0); // Just ensure it's measurable
+    
+    // Log the actual performance for visibility
+    console.log(`✓ Variable parsing: ${duration.toFixed(4)}ms for ${variableCount} variables`);
   });
 
   it('should handle deep substitution efficiently', () => {
     const content = 'A'.repeat(1000) + '{{var1}} ' + 'B'.repeat(1000) + '{{var2}} ' + 'C'.repeat(1000);
     const values = { var1: 'REPLACED1', var2: 'REPLACED2' };
     
-    console.time('Substitute large content');
-    const result = substituteVariables(content, values);
-    console.timeEnd('Substitute large content');
+    const { result, duration } = measureOperation(
+      () => substituteVariables(content, values),
+      'Substitute in 2000+ char content'
+    );
     
     expect(result).toContain('REPLACED1');
     expect(result).toContain('REPLACED2');
     expect(result.length).toBeGreaterThan(content.length); // Should be longer due to substitution
+    expect(duration).toBeLessThan(25); // Should be well under 25ms
+    expect(duration).toBeGreaterThan(0); // Just ensure it's measurable
+    
+    // Log actual performance
+    console.log(`✓ Variable substitution: ${duration.toFixed(4)}ms for ${content.length} chars`);
   });
 
   it('should validate complex content efficiently', () => {
@@ -39,12 +78,14 @@ describe('Performance Integration Tests', () => {
       More valid: {{another_good}} {{final_var}}
     `.repeat(50); // Repeat to make it substantial
     
-    console.time('Validate complex content');
+    const startTime = performance.now();
     const validation = validateVariableUsage(complexContent);
-    console.timeEnd('Validate complex content');
+    const endTime = performance.now();
+    const duration = endTime - startTime;
     
     expect(validation.isValid).toBe(false);
     expect(validation.errors.length).toBeGreaterThan(0);
+    expect(duration).toBeLessThan(100); // Should complete in under 100ms
   });
 
   it('should handle cache performance', () => {
@@ -54,45 +95,56 @@ describe('Performance Integration Tests', () => {
     clearCaches();
     
     // First parse (no cache)
-    console.time('First parse (no cache)');
+    const startTime1 = performance.now();
     const result1 = parseVariables(content);
-    console.timeEnd('First parse (no cache)');
+    const endTime1 = performance.now();
+    const duration1 = endTime1 - startTime1;
     
     // Second parse (with cache)
-    console.time('Second parse (with cache)');
+    const startTime2 = performance.now();
     const result2 = parseVariables(content);
-    console.timeEnd('Second parse (with cache)');
+    const endTime2 = performance.now();
+    const duration2 = endTime2 - startTime2;
     
     expect(result1).toEqual(result2);
     expect(result1).toEqual(['variable']);
+    expect(duration2).toBeLessThanOrEqual(duration1); // Cache should be faster or equal
   });
 
   it('should handle rapid sequential operations', () => {
     const content = 'Quick {{test}} for {{performance}}';
     const values = { test: 'TEST', performance: 'PERF' };
     
-    console.time('100 parse operations');
+    const startTime1 = performance.now();
     for (let i = 0; i < 100; i++) {
       parseVariables(content);
     }
-    console.timeEnd('100 parse operations');
+    const endTime1 = performance.now();
+    const parseDuration = endTime1 - startTime1;
     
-    console.time('100 substitution operations');
+    const startTime2 = performance.now();
     for (let i = 0; i < 100; i++) {
       substituteVariables(content, values);
     }
-    console.timeEnd('100 substitution operations');
+    const endTime2 = performance.now();
+    const substituteDuration = endTime2 - startTime2;
     
-    console.time('100 validation operations');
+    const startTime3 = performance.now();
     for (let i = 0; i < 100; i++) {
       validateVariableUsage(content);
     }
-    console.timeEnd('100 validation operations');
+    const endTime3 = performance.now();
+    const validateDuration = endTime3 - startTime3;
     
-    // Just verify the operations work correctly
+    // Verify the operations work correctly
     expect(parseVariables(content)).toEqual(['test', 'performance']);
     expect(substituteVariables(content, values)).toBe('Quick TEST for PERF');
     expect(validateVariableUsage(content).isValid).toBe(true);
+    
+    // Performance assertions - should complete quickly
+    expect(parseDuration).toBeLessThan(100);
+    expect(substituteDuration).toBeLessThan(100);
+    expect(validateDuration).toBeLessThan(100);
   });
 
   it('should maintain performance with memory pressure', () => {
@@ -101,9 +153,10 @@ describe('Performance Integration Tests', () => {
       `Content ${i} with {{var${i}}} and {{common_var}}`
     );
     
-    console.time('Parse 1000 different contents');
+    const startTime = performance.now();
     const results = contentVariations.map(content => parseVariables(content));
-    console.timeEnd('Parse 1000 different contents');
+    const endTime = performance.now();
+    const duration = endTime - startTime;
     
     // Verify results are correct
     expect(results[0]).toEqual(['var0', 'common_var']);
@@ -112,6 +165,9 @@ describe('Performance Integration Tests', () => {
     
     // All should contain common_var
     expect(results.every(vars => vars.includes('common_var'))).toBe(true);
+    
+    // Should complete in reasonable time even with memory pressure
+    expect(duration).toBeLessThan(1000); // Under 1 second
   });
 
   it('should handle regex edge cases efficiently', () => {
@@ -126,18 +182,17 @@ describe('Performance Integration Tests', () => {
       Numbers: {{var1}} {{var2}} {{var10}} {{var100}}
     `;
     
-    console.time('Parse tricky content');
+    const startTime = performance.now();
     const variables = parseVariables(trickyContent);
-    console.timeEnd('Parse tricky content');
+    const endTime = performance.now();
+    const duration = endTime - startTime;
     
     expect(variables).toContain('good');
     expect(variables).toContain('var1');
     expect(variables).toContain('var2');
     expect(variables).toContain('var3');
-    // Unicode variable names might not be supported by our regex
-    // Let's check what we actually get
-    console.log('Parsed variables:', variables);
     expect(variables.length).toBeGreaterThan(5); // Should have multiple variables
     expect(variables).not.toContain('not_variable');
+    expect(duration).toBeLessThan(50); // Should handle complex patterns quickly
   });
 });

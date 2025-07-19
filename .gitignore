@@ -167,3 +167,8 @@ tramp
 # Application specific
 # Exclude user's local prompt files (they're in ~/Documents/PromptMaster/)
 PromptMaster/
+
+# Claude Code artifacts
+.claude/
+claude_md_files/
+PRPs/
