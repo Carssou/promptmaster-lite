@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, createElement, Fragment, Profiler } from 'react';
 
 interface PerformanceMetrics {
   renderTime: number;
@@ -188,10 +188,10 @@ export function PerformanceProfiler({
 
   // Only use Profiler in development
   if (process.env.NODE_ENV !== 'development') {
-    return React.createElement(React.Fragment, null, children);
+    return createElement(Fragment, null, children);
   }
 
-  return React.createElement(React.Profiler, { id, onRender: handleRender }, children);
+  return createElement(Profiler, { id, onRender: handleRender }, children);
 }
 
 /**
