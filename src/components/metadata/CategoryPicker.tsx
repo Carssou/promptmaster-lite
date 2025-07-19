@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Folder, FolderOpen, Plus } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { CreateCategoryModal } from "../categories/CreateCategoryModal";
+import { useCategoryContext } from "../../contexts/CategoryContext";
 
 interface CategoryNode {
   path: string;
@@ -23,112 +26,131 @@ export function CategoryPicker({
 }: CategoryPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [categoryTree, setCategoryTree] = useState<CategoryNode[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { refreshTrigger } = useCategoryContext();
 
-  // Mock category tree - in real implementation, this would come from backend
-  const categoryTree: CategoryNode[] = [
-    {
-      path: "Uncategorized",
-      name: "Uncategorized",
-      children: [],
-      count: 5,
-    },
-    {
-      path: "Marketing",
-      name: "Marketing",
-      children: [
-        {
-          path: "Marketing/Email",
-          name: "Email",
-          children: [
-            {
-              path: "Marketing/Email/Newsletters",
-              name: "Newsletters",
-              children: [],
-              count: 3,
-            },
-            {
-              path: "Marketing/Email/Campaigns",
-              name: "Campaigns",
-              children: [],
-              count: 7,
-            },
-          ],
-          count: 10,
-        },
-        {
-          path: "Marketing/Social Media",
-          name: "Social Media",
-          children: [
-            {
-              path: "Marketing/Social Media/Twitter",
-              name: "Twitter",
-              children: [],
-              count: 4,
-            },
-            {
-              path: "Marketing/Social Media/LinkedIn",
-              name: "LinkedIn",
-              children: [],
-              count: 2,
-            },
-          ],
-          count: 6,
-        },
-        {
-          path: "Marketing/SEO",
-          name: "SEO",
+  // Helper function to find if a category exists in the tree
+  const findCategoryInTree = (tree: CategoryNode[], targetPath: string): boolean => {
+    for (const node of tree) {
+      if (node.path === targetPath) {
+        return true;
+      }
+      if (node.children && node.children.length > 0) {
+        if (findCategoryInTree(node.children, targetPath)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Helper function to find the best replacement category when one is deleted
+  const findBestReplacement = (deletedPath: string, tree: CategoryNode[]): string => {
+    // Try to find the parent category
+    const pathParts = deletedPath.split('/');
+    if (pathParts.length > 1) {
+      // Try parent categories from most specific to least specific
+      for (let i = pathParts.length - 1; i > 0; i--) {
+        const parentPath = pathParts.slice(0, i).join('/');
+        if (findCategoryInTree(tree, parentPath)) {
+          return parentPath;
+        }
+      }
+    }
+    
+    // If no parent found, default to Uncategorized
+    return "Uncategorized";
+  };
+
+  // Helper function to add a new category to the tree structure
+  const addCategoryToTree = (tree: CategoryNode[], newCategory: CategoryNode) => {
+    const pathParts = newCategory.path.split('/');
+    
+    if (pathParts.length === 1) {
+      // Root level category
+      if (!tree.find(node => node.path === newCategory.path)) {
+        tree.push(newCategory);
+        tree.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } else {
+      // Nested category - find or create parent
+      const parentPath = pathParts.slice(0, -1).join('/');
+      let parentNode = findNodeInTree(tree, parentPath);
+      
+      if (!parentNode) {
+        // Create parent node recursively
+        const parentCategory: CategoryNode = {
+          path: parentPath,
+          name: pathParts[pathParts.length - 2],
           children: [],
-          count: 8,
-        },
-      ],
-      count: 24,
-    },
-    {
-      path: "Development",
-      name: "Development",
-      children: [
-        {
-          path: "Development/Code Review",
-          name: "Code Review",
-          children: [],
-          count: 5,
-        },
-        {
-          path: "Development/Documentation",
-          name: "Documentation",
-          children: [],
-          count: 12,
-        },
-        {
-          path: "Development/Debugging",
-          name: "Debugging",
-          children: [],
-          count: 3,
-        },
-      ],
-      count: 20,
-    },
-    {
-      path: "Content",
-      name: "Content",
-      children: [
-        {
-          path: "Content/Blog Posts",
-          name: "Blog Posts",
-          children: [],
-          count: 15,
-        },
-        {
-          path: "Content/Product Descriptions",
-          name: "Product Descriptions",
-          children: [],
-          count: 8,
-        },
-      ],
-      count: 23,
-    },
-  ];
+          count: 0
+        };
+        addCategoryToTree(tree, parentCategory);
+        parentNode = findNodeInTree(tree, parentPath);
+      }
+      
+      if (parentNode && !parentNode.children.find(child => child.path === newCategory.path)) {
+        parentNode.children.push(newCategory);
+        parentNode.children.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
+  };
+
+  // Helper function to find a specific node in the tree
+  const findNodeInTree = (tree: CategoryNode[], targetPath: string): CategoryNode | null => {
+    for (const node of tree) {
+      if (node.path === targetPath) {
+        return node;
+      }
+      if (node.children.length > 0) {
+        const found = findNodeInTree(node.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Load category tree from backend
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const tree = await invoke<CategoryNode[]>("get_category_tree");
+      setCategoryTree(tree);
+    } catch (error) {
+      console.error("Failed to load categories:", error);
+      // Fallback to empty tree
+      setCategoryTree([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  // Refresh when categories change in other parts of the app
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      loadCategories();
+    }
+  }, [refreshTrigger]);
+
+  // Check if selected category still exists after refresh
+  useEffect(() => {
+    if (categoryPath && categoryTree.length > 0) {
+      const categoryExists = findCategoryInTree(categoryTree, categoryPath);
+      
+      if (!categoryExists) {
+        // Category was deleted, try to find the best replacement
+        const replacement = findBestReplacement(categoryPath, categoryTree);
+        onChange(replacement);
+      }
+    }
+  }, [categoryTree, categoryPath, onChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -173,6 +195,27 @@ export function CategoryPicker({
   const selectCategory = (path: string) => {
     onChange(path);
     setIsOpen(false);
+  };
+
+  const handleCategoryCreated = (categoryPath: string) => {
+    // Set the newly created category as selected immediately
+    onChange(categoryPath);
+    setIsOpen(false);
+    
+    // Add the new category to the tree temporarily so it appears in the dropdown
+    const newCategory: CategoryNode = {
+      path: categoryPath,
+      name: categoryPath.split('/').pop() || categoryPath,
+      children: [],
+      count: 0
+    };
+    
+    // Add to tree and rebuild hierarchy
+    setCategoryTree(prevTree => {
+      const updatedTree = [...prevTree];
+      addCategoryToTree(updatedTree, newCategory);
+      return updatedTree;
+    });
   };
 
   const getDisplayName = (path: string) => {
@@ -265,10 +308,7 @@ export function CategoryPicker({
               <button
                 type="button"
                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                onClick={() => {
-                  // Future: Open category management modal
-                  console.log("Open category management");
-                }}
+                onClick={() => setShowCreateModal(true)}
               >
                 <Plus size={12} className="mr-1" />
                 New
@@ -278,10 +318,27 @@ export function CategoryPicker({
 
           {/* Category Tree */}
           <div className="max-h-48 overflow-y-auto">
-            {categoryTree.map((node) => renderCategoryNode(node))}
+            {loading ? (
+              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                Loading categories...
+              </div>
+            ) : categoryTree.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                No categories found. Create prompts to populate categories.
+              </div>
+            ) : (
+              categoryTree.map((node) => renderCategoryNode(node))
+            )}
           </div>
         </div>
       )}
+
+      {/* Create Category Modal */}
+      <CreateCategoryModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCategoryCreated={handleCategoryCreated}
+      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { DynamicMetadataSidebar } from "../components/metadata/DynamicMetadataSi
 import { validateVariables } from "../services/variableParser";
 import { getModifierKey } from "../hooks/useHotkeys";
 import { invoke } from "@tauri-apps/api/core";
+import { useCategoryContext } from "../contexts/CategoryContext";
 
 interface Version {
   uuid: string;
@@ -67,6 +68,7 @@ const getNextVersion = (currentVersion: string | undefined): string => {
 export function EditorScreen() {
   const { promptId } = useParams<{ promptId: string }>();
   const navigate = useNavigate();
+  const { refreshCategories } = useCategoryContext();
 
   // Platform-specific modifier key
   const modifierKey = getModifierKey();
@@ -433,6 +435,11 @@ export function EditorScreen() {
         duration: 3000,
         icon: "📝",
       });
+      
+      // Refresh categories if category was changed
+      if (data.categoryPath) {
+        await refreshCategories();
+      }
       
       // Reload metadata to reflect changes
       await loadMetadata();

@@ -12,8 +12,8 @@ const validateCache = new Map<string, Array<{
 
 // Configuration for cache management
 const CACHE_CONFIG = {
-  MAX_SIZE: parseInt(process.env.VARIABLE_PARSER_CACHE_SIZE || '100', 10),
-  CLEANUP_INTERVAL: parseInt(process.env.VARIABLE_PARSER_CLEANUP_INTERVAL || '30000', 10),
+  MAX_SIZE: 100, // Default cache size
+  CLEANUP_INTERVAL: 30000, // Default cleanup interval (30 seconds)
 };
 
 // Pre-compiled regex patterns for better performance

@@ -1,10 +1,15 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { Home, Plus, BarChart3, Settings } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { GlobalSearch } from "./search/GlobalSearch";
+import { CategoryTree, CategoryTreeRef } from "./categories/CategoryTree";
+import { CategoryContext } from "../contexts/CategoryContext";
 
 export function Layout() {
   const navigate = useNavigate();
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const categoryTreeRef = useRef<CategoryTreeRef>(null);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -25,6 +30,24 @@ export function Layout() {
     navigate(`/editor/${promptUuid}`);
   };
 
+  const handleCategorySelect = (categoryPath: string) => {
+    setSelectedCategory(categoryPath);
+    // Navigate to dashboard with category filter
+    if (categoryPath) {
+      navigate(`/?category=${encodeURIComponent(categoryPath)}`);
+    } else {
+      navigate("/");
+    }
+  };
+
+  const refreshCategories = async () => {
+    if (categoryTreeRef.current) {
+      await categoryTreeRef.current.refresh();
+    }
+    // Trigger refresh for all category components
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
@@ -33,8 +56,8 @@ export function Layout() {
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">PromptMaster</h1>
         </div>
 
-        <div className="flex-1 p-4">
-          <ul className="space-y-2">
+        <div className="flex-1 p-4 flex flex-col">
+          <ul className="space-y-2 mb-6">
             <NavItem to="/" icon={<Home size={18} />} label="Dashboard" />
             <NavItem to="/new" icon={<Plus size={18} />} label="New Prompt" />
             <NavItem
@@ -48,6 +71,15 @@ export function Layout() {
               label="Settings"
             />
           </ul>
+          
+          {/* Category Tree */}
+          <div className="flex-1 min-h-0">
+            <CategoryTree 
+              ref={categoryTreeRef}
+              onCategorySelect={handleCategorySelect}
+              selectedCategory={selectedCategory}
+            />
+          </div>
         </div>
       </nav>
 
@@ -62,7 +94,9 @@ export function Layout() {
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
-          <Outlet />
+          <CategoryContext.Provider value={{ refreshCategories, refreshTrigger }}>
+            <Outlet />
+          </CategoryContext.Provider>
         </main>
       </div>
     </div>
@@ -82,7 +116,7 @@ function NavItem({
     <li>
       <Link
         to={to}
-        className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+        className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
       >
         {icon}
         <span className="font-medium">{label}</span>

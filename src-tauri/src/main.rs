@@ -12,6 +12,7 @@ mod versions;
 mod watcher;
 mod security;
 mod logging;
+mod categories;
 
 use db::init_database;
 use metadata::{metadata_get, metadata_update, metadata_get_all_tags, metadata_get_model_providers, metadata_add_model_provider, metadata_remove_model_provider, regenerate_markdown_file};
@@ -19,6 +20,7 @@ use migration_status::get_migration_status;
 use prompts::{save_prompt, list_prompts};
 use search::{search_prompts, get_recent_prompts};
 use versions::{get_latest_version, save_new_version, list_versions, list_versions_full, get_version_by_uuid, rollback_to_version};
+use categories::{get_category_tree, update_prompt_category, rename_category, delete_category, get_prompts_by_category, create_category};
 use watcher::start_file_watcher;
 use logging::init_app_logging;
 
@@ -71,7 +73,13 @@ pub fn run() {
             regenerate_markdown_file,
             get_migration_status,
             search_prompts,
-            get_recent_prompts
+            get_recent_prompts,
+            get_category_tree,
+            update_prompt_category,
+            rename_category,
+            delete_category,
+            get_prompts_by_category,
+            create_category
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

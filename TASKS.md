@@ -128,33 +128,51 @@ This document outlines all tasks needed to implement prompt discoverability feat
 
 ## 3. Category Tree Navigation
 
-### 3.1 Frontend Components
+### 3.1 Frontend Components ✅ COMPLETED
 
-- [ ] **Create CategoryTree component** (`src/components/categories/CategoryTree.tsx`)
-  - Collapsible tree structure
-  - Count badges per node
-  - Left sidebar placement below "Prompts"
+- [x] **Create CategoryTree component** (`src/components/categories/CategoryTree.tsx`)
+  - Collapsible tree structure with ChevronRight/ChevronDown icons
+  - Count badges per category node showing prompt counts
+  - Left sidebar placement below "Prompts" navigation
+  - Context menu support for rename/delete operations (UI ready)
+  - Dark mode support and accessibility features
+  - Test data attributes for future testing
 - [ ] **Add drag & drop functionality** (`src/components/categories/CategoryTree.tsx`)
   - Drag prompts onto tree nodes
   - Update category_path on drop
-- [ ] **Create category context menu** (`src/components/categories/CategoryTree.tsx`)
-  - Right-click: rename, delete options
-  - Delete moves prompts to parent category
+- [x] **Create category context menu** (`src/components/categories/CategoryTree.tsx`)
+  - Right-click: rename, delete options (UI implemented)
+  - Delete moves prompts to parent category (backend ready)
 
-### 3.2 Backend Category Management
+### 3.2 Backend Category Management ✅ COMPLETED
 
-- [ ] **Create categories module** (`src-tauri/src/categories.rs`)
-  - `get_category_tree()` - build tree from category_path strings
-  - `update_prompt_category(prompt_uuid, category_path)`
-  - `rename_category(old_path, new_path)`
-  - `delete_category(category_path)`
+- [x] **Create categories module** (`src-tauri/src/categories.rs`)
+  - `get_category_tree()` - builds tree from real database category_path strings
+  - `update_prompt_category(prompt_uuid, category_path)` - updates prompt categories
+  - `rename_category(old_path, new_path)` - renames categories and updates all affected prompts
+  - `delete_category(category_path)` - deletes categories and moves prompts to parent
+- [x] **Register Tauri commands** in `main.rs`
+- [x] **Database integration** - reads real data from prompts.category_path column
+- [x] **Validation** - category path validation with ASCII character checks
+- [x] **Transaction safety** - all operations use database transactions
 
-### 3.3 Category Tree Logic
+### 3.3 Category Tree Logic ✅ COMPLETED
 
-- [ ] **Add category utilities** (`src/services/categoryUtils.ts`)
-  - Parse `/`-delimited paths
-  - Build tree structure from flat paths
-  - Validate category names (printable ASCII only)
+- [x] **Update CategoryTree to use real backend data** (`src/components/categories/CategoryTree.tsx`)
+  - Replace hardcoded mock data with Tauri command calls via `invoke("get_category_tree")`
+  - Implement real-time category tree loading from database
+  - Add comprehensive loading states and error handling with retry functionality
+  - Display "No categories found" state when database is empty
+- [x] **Connect context menu actions to backend**
+  - Wire rename functionality to `rename_category()` command with user input prompts
+  - Wire delete functionality to `delete_category()` command with confirmation dialogs
+  - Automatic tree refresh after successful operations
+  - Error handling with user-friendly error messages
+- [x] **Add category utilities** (`src/services/categoryUtils.ts`)
+  - Helper functions for category path manipulation (parse, build, parent/child relationships)
+  - Category validation utilities (name validation, path validation, sanitization)
+  - Tree navigation helpers (find, traverse, breadcrumbs, sorting)
+  - Comprehensive unit test suite with 21 tests covering all utility functions
 
 ## 4. Quick Switcher (Cmd+P Style)
 
