@@ -86,10 +86,6 @@ export function RenameCategoryModal({
     return parts.slice(0, -1).join('/');
   };
 
-  const getCurrentName = (path: string) => {
-    const parts = path.split('/');
-    return parts[parts.length - 1];
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

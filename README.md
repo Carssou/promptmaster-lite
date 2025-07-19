@@ -5,7 +5,7 @@ A production-ready, local-first desktop application for managing AI prompts with
 ![PromptMaster Lite](https://img.shields.io/badge/version-0.6.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
-![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-80%20passing-brightgreen.svg)
 ![Accessibility](https://img.shields.io/badge/accessibility-WCAG%20compliant-green.svg)
 
 ## ✨ What's New in v0.6.0
@@ -16,6 +16,12 @@ A production-ready, local-first desktop application for managing AI prompts with
 - ⚡ **Real-time Results**: Debounced search with highlighted snippets and relevance scoring
 - 📊 **Search Performance**: Optimized FTS5 queries with automatic index synchronization
 - 🎯 **Precise Navigation**: Click any search result to jump directly to that prompt
+- 🌲 **Complete Category Management**: Full CRUD operations with hierarchical tree navigation
+- 📁 **Category Tree**: Collapsible tree structure with count badges and real-time updates
+- 🎯 **Category Filtering**: Click categories to filter prompts (parent/child logic supported)
+- ✏️ **Professional Modals**: Create, rename, and delete categories with validation and error handling
+- 🔄 **Smart Refresh System**: Auto-sync across all category components with context-based updates
+- 🛡️ **Protected System Categories**: "Uncategorized" category properly protected from modification
 
 ### Previous Release (v0.5.1)
 

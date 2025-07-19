@@ -47,7 +47,6 @@ export function DeleteCategoryModal({
     return parts.slice(0, -1).join('/');
   };
 
-  const hasSubcategories = categoryPath.includes('/') || categoryPath !== "Uncategorized";
   const parentCategory = getParentCategory(categoryPath);
 
   return (

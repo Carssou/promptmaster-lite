@@ -202,7 +202,7 @@ function PromptCard({ prompt }: { prompt: Prompt }) {
       {tags.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <Tag size={14} className="text-gray-400" />
-          {tags.map((tag) => (
+          {tags.map((tag: string) => (
             <span
               key={tag}
               className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md"
